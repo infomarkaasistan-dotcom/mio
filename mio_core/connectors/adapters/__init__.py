@@ -8,6 +8,7 @@ from .bootstrap import register_from_env
 from .caldav import caldav_connector
 from .filesystem import filesystem_connector
 from .git import git_connector
+from .media import ffmpeg_connector, openai_tts_connector, piper_tts_connector, whisper_connector
 from .ollama import ollama_connector
 from .openai_compat import openai_connector
 from .shell import shell_connector
@@ -20,4 +21,5 @@ __all__ = [
     "smtp_connector", "webhook_connector",
     "ollama_connector", "openai_connector",
     "caldav_connector",
+    "ffmpeg_connector", "openai_tts_connector", "piper_tts_connector", "whisper_connector",
 ]

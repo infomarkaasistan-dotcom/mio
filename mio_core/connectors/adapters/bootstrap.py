@@ -13,6 +13,7 @@ from typing import Any, Optional
 from .caldav import caldav_connector
 from .filesystem import filesystem_connector
 from .git import git_connector
+from .media import ffmpeg_connector, openai_tts_connector, piper_tts_connector, whisper_connector
 from .ollama import ollama_connector
 from .openai_compat import openai_connector
 from .shell import shell_connector
@@ -88,6 +89,29 @@ def register_from_env(manager, *, env: Optional[dict] = None, workspace: str = "
         registered.append("caldav")
     else:
         skipped.append("caldav (CALDAV_URL/USER yok)")
+
+    # Media — FFmpeg (yerel; health binary'ye bağlı → yoksa sağlıksız, çökmez)
+    manager.register(ffmpeg_connector()); registered.append("ffmpeg")
+
+    # Media — TTS (Piper yerel, ya da OpenAI-uyumlu bulut)
+    if env.get("PIPER_MODEL"):
+        manager.register(piper_tts_connector(binary=env.get("PIPER_BINARY", "piper"),
+                                             model_path=env["PIPER_MODEL"]))
+        registered.append("piper")
+    elif env.get("OPENAI_API_KEY"):
+        manager.register(openai_tts_connector(api_key=env["OPENAI_API_KEY"],
+                                              voice=env.get("MIO_TTS_VOICE", "alloy")))
+        registered.append("openai-tts")
+    else:
+        skipped.append("tts (PIPER_MODEL / OPENAI_API_KEY yok)")
+
+    # Media — STT (Whisper-uyumlu)
+    if env.get("OPENAI_API_KEY") or env.get("WHISPER_URL"):
+        manager.register(whisper_connector(api_key=env.get("OPENAI_API_KEY", ""),
+                                           base_url=env.get("WHISPER_URL", "https://api.openai.com/v1")))
+        registered.append("whisper")
+    else:
+        skipped.append("whisper (OPENAI_API_KEY / WHISPER_URL yok)")
 
     return {"registered": registered, "skipped": skipped, "fs_root": fs_root}
 

@@ -57,7 +57,9 @@ _HELP_SECTIONS = [
                     ("prometheus", "Prometheus text exposition"),
                     ("events [N]", "son N event bus olayı")]),
     ("System", [("config", ".env + os.environ yapılandırma teşhisi (hangi değer nereden)"),
-                ("serve [--host --port]", "HTTP API adapter'ını başlat"),
+                ("workspace", "workspace teşhisi (yol/boyut/db/disk)"),
+                ("server [start|stop|status]", "gömülü HTTP API'yi arka-planda yönet"),
+                ("serve [--host --port]", "HTTP API adapter'ını başlat (bloklayan)"),
                 ("--json", "herhangi bir komutta ham JSON çıktı zorla"),
                 ("help", "bu yardım"), ("quit / exit", "çık")]),
 ]
@@ -146,6 +148,19 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
             return 0, "raw", appservice.connect_env(mio)
         if name == "config":
             return 0, "raw", appservice.config_diagnostics(mio)
+        if name == "workspace":
+            return 0, "raw", appservice.workspace_info(mio)
+        if name == "server":                          # gömülü HTTP API'yi CLI'dan yönet (arka-plan)
+            sub = rest[0] if rest else "status"
+            if sub == "start":
+                host = _pop_flag(rest, "--host") or "127.0.0.1"
+                port = _pop_flag(rest, "--port") or "8080"
+                return 0, "raw", appservice.server_start(mio, host=host, port=int(port))
+            if sub == "stop":
+                return 0, "raw", appservice.server_stop(mio)
+            if sub == "status":
+                return 0, "raw", appservice.server_status(mio)
+            return 2, "text", "kullanım: server [start [--host --port] | stop | status]"
         return 2, "text", f"bilinmeyen komut: {name}  ('help' ile komut listesi)"
     except (NotFound, BadRequest) as exc:
         return 2, "text", f"{type(exc).__name__}: {exc}"

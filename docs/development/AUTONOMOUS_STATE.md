@@ -114,10 +114,21 @@
     (conversation.reply/delete/ban...). Executive köprüsü conversation_reply/moderate. Madde 24 (delete/timeout/ban/
     broadcast/pin). İsim çakışması çözüldü (communication'ın ConversationRepository'si vs yeni → LiveConversationRepo
     alias). `mio.conversation`. CLI `chat`, HTTP /conversation. test (9). Tam süit **931+2skip** (45 domain).
-  - **🎉 Presentation(ne anlatılacak) + Conversation(kim ne yazıyor) ayrımı — çok-platform canlı etkileşim temeli.**
-    SIRADAKİ (kalan CLI direktif + 3. direktif): OpenManus/MetaGPT mimari analiz raporu (2. nesil yol haritası),
-    Media Connector Pack gerçek adapter'lar (Piper/Whisper/FFmpeg/OBS), HTTP server lifecycle CLI, workspace CRUD,
-    auto-complete + persistent history, live `watch` stream, tokens/sec, Advisor↔model bağlama, API ağ-auth.
+  - **✅ OpenManus/MetaGPT mimari analiz raporu TAMAM** (3. direktif) — `docs/architecture/SECOND_GENERATION_
+    ROADMAP.md`: 12 alan VAR/KISMEN/YOK + puanlı 2. nesil yol haritası. En büyük fırsatlar: K1 Workflow Domain
+    (DAG/checkpoint), Y1 Learning (trajectory/pattern), Y2 Reasoning (verifier). MIO yönetişim/tool/environment/
+    çok-arayüzde referansların önünde. Kod kopyalanmadı (yalnız desen analizi).
+  - **✅ Media Connector Pack TAMAM** (Y5) — `mio_core/connectors/adapters/media.py`: openai_tts/piper_tts
+    (speech.synthesize), whisper (speech.transcribe), ffmpeg (audio.convert/video.encode). register_from_env media
+    bağlar. UÇTAN UCA: Presentation niyeti → Executive köprüsü → gerçek media connector → executed (test kanıtı).
+    `tests/test_media_connectors.py` (6).
+  - **✅ CLI kalan kalemler (kısmi) TAMAM** — HTTP server lifecycle CLI'dan (`server start/stop/status`, arka-plan
+    thread, idempotent, close'da graceful stop; `mio.http_server` lazy) + `workspace` teşhisi. appservice
+    server_start/stop/status + workspace_info. `tests/test_server_workspace.py` (4). Tam süit **941+2skip**.
+  - **🎉 45 domain + Presentation/Conversation + Media adapter + server/workspace CLI.** SIRADAKİ (kalan): CLI
+    auto-complete + persistent history (readline), live `watch` event stream, tokens/sec ölçümü; yol haritası
+    K1 Workflow Domain, Y1 Learning trajectory, Y2 Reasoning verifier (büyük mimari eklemeler); Advisor↔model
+    otomatik bağlama; API ağ-auth (token/mTLS).
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

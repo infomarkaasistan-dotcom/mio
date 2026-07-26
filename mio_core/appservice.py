@@ -139,6 +139,38 @@ def config_diagnostics(mio) -> dict[str, Any]:
     return diag
 
 
+# ---- HTTP server lifecycle + Workspace yüzeyi (CLI/UI ortak) ----
+def server_start(mio, *, host: str = "127.0.0.1", port: int = 8080) -> dict[str, Any]:
+    return mio.http_server.start(host=host, port=int(port))
+
+
+def server_stop(mio) -> dict[str, Any]:
+    return mio.http_server.stop()
+
+
+def server_status(mio) -> dict[str, Any]:
+    return mio.http_server.status()
+
+
+def workspace_info(mio) -> dict[str, Any]:
+    """Workspace teşhisi: yol + boyut + domain veritabanı sayısı + disk (deterministik, salt-okunur)."""
+    import os
+    import shutil
+    ws = getattr(mio, "_workspace", "") or "."
+    dbs, total = [], 0
+    try:
+        for fn in sorted(os.listdir(ws)):
+            if fn.endswith(".db"):
+                sz = os.path.getsize(os.path.join(ws, fn))
+                dbs.append({"name": fn, "size": sz})
+                total += sz
+    except Exception:  # noqa: BLE001
+        pass
+    disk = shutil.disk_usage(ws) if os.path.isdir(ws) else None
+    return {"workspace": ws, "databases": len(dbs), "total_bytes": total, "files": dbs,
+            "disk_free_mb": (disk.free // (1024 * 1024)) if disk else None}
+
+
 # ---- MCP Manager yüzeyi — CLI/HTTP/UI ortak (iş mantığı mcp_management domaininde) ----
 def mcp_list(mio, *, actor: str = "owner") -> list[dict[str, Any]]:
     return mio.mcp_management.list_servers(actor)
@@ -369,4 +401,5 @@ __all__ = [
     "presentation_deliver",
     "conversation_receive", "conversation_queue", "conversation_summary", "conversation_reply",
     "conversation_moderate",
+    "server_start", "server_stop", "server_status", "workspace_info",
 ]

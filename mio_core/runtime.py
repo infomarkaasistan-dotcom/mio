@@ -231,6 +231,7 @@ class MIORuntime:
         self.local_inference: LocalInferenceManager = LocalInferenceManager(self.hardware)
         # Açılışta otomatik hazırlık sonucu (prepare_inference/MIO_AUTO_INFERENCE açıksa dolar; aksi None).
         self.inference_status: Optional[dict[str, Any]] = None
+        self._http_handle = None             # gömülü HTTP sunucusu yaşam-döngüsü (lazy; CLI'dan yönetilir)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -319,6 +320,14 @@ class MIORuntime:
         status = "operational" if connected > 0 and not dead else ("degraded" if dead else "booting")
         return {"status": status, "connected_capabilities": connected, "dead": dead,
                 "trust_avg": d["trust_avg"], "outdated": len(d["outdated"])}
+
+    @property
+    def http_server(self):
+        """Gömülü HTTP API sunucusunun yaşam-döngüsü kolu (start/stop/status). Lazy — tek süreç içi."""
+        if self._http_handle is None:
+            from mio_core.platform.http_lifecycle import HTTPServerHandle
+            self._http_handle = HTTPServerHandle(self)
+        return self._http_handle
 
     def readiness(self) -> dict:
         """Operational Readiness self-check (DETERMİNİSTİK; dış adapter gerektirmez).
@@ -409,6 +418,8 @@ class MIORuntime:
             except Exception as exc:  # noqa: BLE001 — kapanış hatası GÖRÜNÜR olur, süreci durdurmaz
                 report["errors"].append({"component": component, "error": str(exc)[:200]})
 
+        if self._http_handle is not None and self._http_handle.is_running():
+            _try("http_server", self._http_handle.stop)   # gömülü HTTP sunucusunu durdur (graceful)
         _try("persist", self.persist)
         if self._kv is not None:
             _try("kv", self._kv.close)
