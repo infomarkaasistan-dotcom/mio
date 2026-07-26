@@ -52,10 +52,19 @@
     System CANLI test; ağ-tabanlılar gerçek kod + enjekte-transport (canlı serviste config ile çalışır, hesap
     olmadan doğrulanmadı — Madde 8). `docs/development/CONNECTOR_ADAPTERS.md`, `tests/test_connector_adapters.py`
     (11). Madde 24 (fs.write/shell.exec vb.) + Madde 1 (AI danışman) yürürlükte. Tam süit **838**.
-  - **🎉 4 Interface katmanı + gerçek connector'lar TAMAM.** SIRADAKİ adaylar: API ağ-auth (token/mTLS — reflektif
-    call + capability execute'i dışa açmadan önce), Resilience'ı connector çağrılarına sarma (artık gerçek adapter
-    var → anlamlı), canlı deploy (Ollama/SMTP config + Prometheus/Grafana), Advisor'ı Executive karar-akışına danışman
-    olarak entegre (LLM tavsiyesi + deterministik karar). Kullanıcı yönlendirmesi bekleniyor.
+  - **✅ CANLI Ollama doğrulaması** — Executive→advisor.ask()→ConnectorManager→ollama→GERÇEK LLM zinciri canlı
+    çalıştı ("2+2"→"4"). AMA sistem DONDU (kullanıcı bildirdi): ilk çağrı 4 dk (CPU/kısmi çıkarım). Canlı test artık
+    OPT-IN (`MIO_LIVE_OLLAMA=1`; varsayılan skip → donma yok). Ollama connector timeout 30→180s (model yükleme).
+  - **✅ Hardware Diagnostics & Awareness TAMAM** (kullanıcı direktifi) — `mio_core/platform/hardware.py`
+    HardwareDiagnostics (stdlib+subprocess, enjekte runner/urlopen → deterministik): CPU/RAM(ctypes-Win)/GPU+VRAM
+    (nvidia-smi)/CUDA/Ollama + **CPU-vs-GPU çıkarım tespiti** (/api/ps size_vram÷size → gpu/cpu/partial) +
+    uyarı/öneri + `recommend_model` (VRAM'e göre). `mio.hardware` (lazy). CLI `hardware`+`connect` Ollama uyarısı;
+    HTTP `GET /hardware`; appservice ortak. `tests/test_hardware.py` (9). **BU MAKİNE TEŞHİSİ:** RTX 3050 8GB VRAM
+    (7GB boş) + CUDA 13.1 + 12-core AMD + 16GB RAM → YETENEKLİ; donma = model VRAM'e sığmayıp CPU'ya taştı (önceki
+    testlerden çok model yüklü). Öneri: OLLAMA_MAX_LOADED_MODELS=1 + ≤7B model (mistral:7b). Tam süit **847+2skip**.
+  - **🎉 4 Interface katmanı + gerçek connector'lar + hardware awareness TAMAM.** SIRADAKİ adaylar: API ağ-auth
+    (token/mTLS), Resilience'ı connector çağrılarına sar (soğuk-başlangıç timeout'u = tam retry/backoff senaryosu),
+    Advisor'ı Executive karar-akışına danışman entegre, model-seçiminde hardware.recommend_model'i otomatik kullan.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

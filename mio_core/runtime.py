@@ -43,6 +43,7 @@ from mio_core.domains.digital_twin import DigitalTwinDomain, DigitalTwinReposito
 from mio_core.domains.extension_sdk import ExtensionSDKDomain, ExtensionRepository
 from mio_core.connectors import Advisor, ConnectorManager, ConnectorRegistry
 from mio_core.monitoring import MonitoringAdapter
+from mio_core.platform.hardware import HardwareDiagnostics
 from mio_core.domains.document_intelligence import DocumentIntelligenceDomain, DocumentRepository
 from mio_core.domains.execution import ExecutionDomain, ExecutionRepository
 from mio_core.domains.executive import ExecutiveDomain
@@ -216,6 +217,8 @@ class MIORuntime:
         # Monitoring Adapter: çekirdek metriklerini Prometheus/OTLP'ye aktarır (çekirdek framework-bağımsız).
         # self.metrics/self.readiness metodlarına bağlanır (lazy — yalnız çağrıldığında okur).
         self.monitoring: MonitoringAdapter = MonitoringAdapter(self.metrics, readiness_fn=self.readiness)
+        # Hardware Diagnostics & Awareness (lazy — yalnız report() çağrılınca sistem taranır).
+        self.hardware: HardwareDiagnostics = HardwareDiagnostics()
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]

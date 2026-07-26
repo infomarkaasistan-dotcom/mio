@@ -127,9 +127,15 @@ def otlp_metrics(mio) -> dict[str, Any]:
     return mio.monitoring.otlp_metrics()
 
 
+# ---- Hardware Diagnostics yüzeyi — CLI+HTTP ortak ----
+def hardware_report(mio) -> dict[str, Any]:
+    """CPU/RAM/GPU/VRAM/CUDA/Ollama + CPU-vs-GPU çıkarım tespiti + uyarı/öneri."""
+    return mio.hardware.report()
+
+
 __all__ = [
     "NotFound", "BadRequest", "PUBLIC_DOMAINS",
     "list_domains", "domain_contract", "domain_stats", "metrics", "readiness", "health", "events", "call",
     "connectors_overview", "capabilities_catalog", "execute_capability",
-    "prometheus_metrics", "otlp_metrics",
+    "prometheus_metrics", "otlp_metrics", "hardware_report",
 ]

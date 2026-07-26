@@ -38,6 +38,7 @@ _INDEX = {
         "GET /domains/{name}/contract": "domain sözleşmesi",
         "GET /domains/{name}/stats": "domain metrikleri",
         "GET /events?limit=N": "son olaylar",
+        "GET /hardware": "CPU/RAM/GPU/VRAM/CUDA/Ollama teşhisi + CPU/GPU çıkarım + uyarı",
         "GET /connectors": "kayıtlı connector'lar (Capability Adapter Layer)",
         "GET /capabilities": "capability → sağlayan connector'lar",
         "POST /domains/{name}/{operation}": "operasyon çağrısı (JSON gövde = kwargs, ör. {\"actor\":\"owner\"})",
@@ -83,6 +84,8 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             if parts == ["events"]:
                 limit = int(query.get("limit", ["20"])[0]) if query.get("limit") else 20
                 return 200, appservice.events(mio, limit)
+            if parts == ["hardware"]:
+                return 200, appservice.hardware_report(mio)
             if parts == ["connectors"]:
                 return 200, appservice.connectors_overview(mio)
             if parts == ["capabilities"]:

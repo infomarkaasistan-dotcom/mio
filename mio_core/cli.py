@@ -13,6 +13,7 @@ Komutlar:
   readiness | health              → operasyonel hazırlık / sağlık (readiness ready değilse çıkış kodu 1)
   events [N]                      → son N event bus olayı (varsayılan 20)
   call <domain> <op> [json]       → bir domain operasyonunu reflektif çağırır (json = {"actor":"owner",...})
+  hardware                        → CPU/RAM/GPU/VRAM/CUDA/Ollama teşhisi + CPU/GPU çıkarım + uyarı/öneri
   connect                         → env'e göre GERÇEK connector adapter'larını bağla (filesystem/git/smtp/...)
   connectors                      → kayıtlı connector'lar (kategori/capability/öncelik/health)
   capabilities                    → capability → sağlayan connector'lar kataloğu
@@ -75,9 +76,16 @@ def run_command(mio, argv: list) -> tuple[int, str]:
             return 0, _fmt(appservice.domain_stats(mio, rest[0]))
         if name == "call":
             return _do_call(mio, rest)
+        if name == "hardware":                        # CPU/RAM/GPU/VRAM/CUDA/Ollama + çıkarım teşhisi
+            return 0, _fmt(appservice.hardware_report(mio))
         if name == "connect":                        # env'e göre gerçek connector'ları bağla
             from mio_core.connectors.adapters import register_from_env
-            return 0, _fmt(register_from_env(mio.connectors, workspace=getattr(mio, "_workspace", ".mio")))
+            summary = register_from_env(mio.connectors, workspace=getattr(mio, "_workspace", ".mio"))
+            if "ollama" in summary.get("registered", []):   # yerel çıkarım bağlandıysa donanımı uyar
+                hw = appservice.hardware_report(mio)
+                summary["hardware_warnings"] = hw["warnings"]
+                summary["hardware_recommendations"] = hw["recommendations"]
+            return 0, _fmt(summary)
         if name == "connectors":
             return 0, _fmt(appservice.connectors_overview(mio))
         if name == "capabilities":

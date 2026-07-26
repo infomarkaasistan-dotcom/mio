@@ -12,21 +12,23 @@ from ..models import Cap, CallableConnector, ConnectorCategory
 
 
 def ollama_connector(*, host: str = "http://localhost:11434", model: str = "llama3",
-                     name: str = "ollama", priority: int = 100,
+                     name: str = "ollama", priority: int = 100, timeout: float = 180.0,
                      urlopen: Optional[Callable] = None) -> CallableConnector:
     base = host.rstrip("/")
 
     def _advise(req: dict) -> dict[str, Any]:
+        # LLM çıkarımı + model yükleme uzun sürebilir → uzun timeout (health ping kısa kalır)
         r = http_json(f"{base}/api/generate", method="POST",
                       body={"model": req.get("model", model), "prompt": req.get("prompt", ""),
-                            "stream": False}, urlopen=urlopen)
+                            "stream": False}, timeout=req.get("timeout", timeout), urlopen=urlopen)
         body = r["body"]
         # Danışman TAVSİYE döndürür (karar değil)
         return {"advice": body.get("response", ""), "model": body.get("model", model), "raw": body}
 
     def _embed(req: dict) -> dict[str, Any]:
         r = http_json(f"{base}/api/embeddings", method="POST",
-                      body={"model": req.get("model", model), "prompt": req.get("text", "")}, urlopen=urlopen)
+                      body={"model": req.get("model", model), "prompt": req.get("text", "")},
+                      timeout=req.get("timeout", timeout), urlopen=urlopen)
         return {"embedding": r["body"].get("embedding", [])}
 
     def _health() -> bool:
