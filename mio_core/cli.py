@@ -84,11 +84,14 @@ def run_command(mio, argv: list) -> tuple[int, str]:
             sub = rest[0] if rest else "analyze"
             if sub == "analyze":
                 return 0, _fmt(appservice.inference_analyze(mio))
+            if sub == "status":                        # açılıştaki otomatik hazırlık sonucu (varsa)
+                return 0, _fmt(mio.inference_status or {"prepared": False,
+                               "note": "otomatik hazırlık kapalı — 'inference ensure-ready' çalıştırın"})
             if sub in ("ensure-ready", "ensure", "prepare"):
                 approve = set(rest[1:])               # ör: inference ensure-ready install_ollama delete_unfit
                 rep = appservice.inference_ensure_ready(mio, approve=approve)
                 return (0 if rep.get("ready") else 1), _fmt(rep)
-            return 2, "kullanım: inference [analyze | ensure-ready [onay...]]"
+            return 2, "kullanım: inference [analyze | status | ensure-ready [onay...]]"
         if name == "connect":                        # env'e göre gerçek connector'ları bağla
             from mio_core.connectors.adapters import register_from_env
             summary = register_from_env(mio.connectors, workspace=getattr(mio, "_workspace", ".mio"))

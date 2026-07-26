@@ -222,6 +222,8 @@ class MIORuntime:
         self.hardware: HardwareDiagnostics = HardwareDiagnostics()
         # Local Inference Manager: MIO çalışacağı ortamı yönetir (Ollama+modeller; analyze/ensure_ready).
         self.local_inference: LocalInferenceManager = LocalInferenceManager(self.hardware)
+        # Açılışta otomatik hazırlık sonucu (prepare_inference/MIO_AUTO_INFERENCE açıksa dolar; aksi None).
+        self.inference_status: Optional[dict[str, Any]] = None
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -339,6 +341,11 @@ class MIORuntime:
         checks["domains"] = {"ok": not failed, "ready": ready_count,
                              "total": len(_READINESS_DOMAINS), "failed": failed}
 
+        # Yerel çıkarım hazırlığı yapıldıysa bilgi olarak ekle (readiness'i BLOKLAMAZ — opsiyonel yetenek).
+        if self.inference_status is not None:
+            checks["local_inference"] = {"ok": True, "prepared": bool(self.inference_status.get("ready")),
+                                         "model": self.inference_status.get("selected_model")}
+
         ready = all(c["ok"] for c in checks.values())
         return {"ready": ready, "checks": checks}
 
@@ -406,8 +413,13 @@ class MIORuntime:
 def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama: bool = True,
          ollama_base_url: str = "http://localhost:11434", discover_hw: bool = True,
          mcp_servers: Optional[list[MCPServerConfig]] = None,
-         mcp_transport_factory: Optional[Any] = None) -> MIORuntime:
-    """Gerçek MIO Executive OS'u ayağa kaldırır (kalıcı depolar + birth + gerçek adaptörler)."""
+         mcp_transport_factory: Optional[Any] = None,
+         prepare_inference: Optional[bool] = None) -> MIORuntime:
+    """Gerçek MIO Executive OS'u ayağa kaldırır (kalıcı depolar + birth + gerçek adaptörler).
+
+    `prepare_inference`: MIO açılışta çalışacağı yerel çıkarım ortamını KENDİSİ hazırlasın mı (uygun modeli seç/
+    indir/fazlalık durdur/test). None → env `MIO_AUTO_INFERENCE` (varsayılan KAPALI — boot'u bloklamaz/istenmeyen
+    indirme yapmaz). Güvenli işler otomatik; model SİLME/Ollama KURULUMU onaysız YAPILMAZ (Madde 24)."""
     os.makedirs(workspace, exist_ok=True)
 
     def _p(name: str) -> str:
@@ -740,7 +752,7 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
     knowledge.import_items([i.to_dict() for i in knowledge_repo.all()])  # write-through kalıcı depo (yetkili)
     meta.import_metrics(kv.get("meta_metrics", {}))
 
-    return MIORuntime(
+    mio = MIORuntime(
         kv=kv,
         state=state, cognitive=cognitive, knowledge=knowledge, brains=brains,
         capabilities=capabilities, gateway=gateway, orchestrator=orchestrator, governance=governance,
@@ -775,3 +787,17 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
                 federation_repo, dist_exec_repo, auto_ops_repo, digital_twin_repo, extension_repo],
         closeables=[c for c in (mcp_client,) if c is not None],
     )
+
+    # --- Opsiyonel: MIO açılışta çalışacağı yerel çıkarım ortamını KENDİSİ hazırlar (varsayılan KAPALI) ---
+    _auto = prepare_inference if prepare_inference is not None \
+        else (os.environ.get("MIO_AUTO_INFERENCE", "").strip().lower() in ("1", "true", "yes", "on"))
+    if _auto:
+        try:
+            status = mio.local_inference.ensure_ready()   # güvenli işler otomatik; silme/kurulum onay bekler
+            mio.inference_status = status                 # açılış sonucu (mio.inference_status)
+            bus.publish("inference.prepared", {"ready": status.get("ready"),
+                        "model": status.get("selected_model"), "message": status.get("message")})
+        except Exception as exc:  # noqa: BLE001 — hazırlık hatası boot'u ÇÖKERTMEZ (dürüst), görünür kalır
+            mio.inference_status = {"ready": False, "error": str(exc)[:200]}
+
+    return mio

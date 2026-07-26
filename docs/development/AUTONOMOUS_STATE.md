@@ -71,9 +71,14 @@
     inference`. CLI `inference analyze|ensure-ready [onay..]`; HTTP `GET /inference/analyze`, `POST /inference/
     ensure-ready`; appservice ortak. `tests/test_local_inference.py` (8). Canlı analiz doğrulandı (mistral:7b öneri,
     qwen3.5:9b sığmaz). `docs/development/LOCAL_INFERENCE.md`. Tam süit **855+2skip**.
-  - **🎉 MIO artık çalışacağı ortamı YÖNETİYOR** (analiz→seç→durdur→indir→test→bildir; silme/kurulum onayla).
-    SIRADAKİ adaylar: boot()'ta opsiyonel otomatik ensure_ready (kullanıcı onayıyla), Advisor'ı model-seçimiyle
-    bağla (advisor otomatik uygun modeli kullansın), API ağ-auth, Resilience'ı connector'a sar.
+  - **✅ boot() otomatik hazırlık TAMAM** — `boot(prepare_inference=True)` veya env `MIO_AUTO_INFERENCE=1` → MIO
+    açılışta `ensure_ready` çağırır (KENDİSİ ortamı hazırlar). Varsayılan KAPALI (boot'u bloklamaz/istenmeyen
+    indirme yok). Sonuç `mio.inference_status`; `inference.prepared` event; readiness'e bilgi (bloklamaz); CLI
+    `inference status`. Hata boot'u ÇÖKERTMEZ (görünür). `tests/test_boot_auto_inference.py` (4). `.env.example`:
+    MIO_AUTO_INFERENCE. Tam süit **859+2skip**.
+  - **🎉 MIO çalışacağı ortamı YÖNETİYOR + açılışta OTOMATİK hazırlayabiliyor** (opt-in). SIRADAKİ adaylar:
+    Advisor'ı seçili modelle otomatik bağla (ensure_ready sonrası advisor o modeli kullansın), API ağ-auth
+    (token/mTLS), Resilience'ı connector çağrılarına sar (Ollama soğuk-başlangıç = tam retry senaryosu).
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her
