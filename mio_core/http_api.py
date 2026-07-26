@@ -39,6 +39,9 @@ _INDEX = {
         "GET /domains/{name}/stats": "domain metrikleri",
         "GET /events?limit=N": "son olaylar",
         "GET /hardware": "CPU/RAM/GPU/VRAM/CUDA/Ollama teşhisi + CPU/GPU çıkarım + uyarı",
+        "GET /diagnose": "tam sağlık denetimi + Executive Score",
+        "GET /executive": "executive özet DTO (CLI/UI/HTTP aynı)",
+        "GET /models": "kurulu/yüklü modeller + VRAM'e göre öneri",
         "GET /inference/analyze": "yerel çıkarım ortamı analizi",
         "POST /inference/ensure-ready": "MIO ortamı hazırla (model seç/indir/durdur/test; body={approve,auto_pull,run_test})",
         "GET /connectors": "kayıtlı connector'lar (Capability Adapter Layer)",
@@ -88,6 +91,12 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.events(mio, limit)
             if parts == ["hardware"]:
                 return 200, appservice.hardware_report(mio)
+            if parts == ["diagnose"]:
+                return 200, appservice.diagnose(mio)
+            if parts == ["executive"]:
+                return 200, appservice.executive_summary(mio)
+            if parts == ["models"]:
+                return 200, appservice.models_overview(mio)
             if parts == ["inference", "analyze"]:
                 return 200, appservice.inference_analyze(mio)
             if parts == ["connectors"]:

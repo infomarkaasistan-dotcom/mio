@@ -76,9 +76,21 @@
     indirme yok). Sonuç `mio.inference_status`; `inference.prepared` event; readiness'e bilgi (bloklamaz); CLI
     `inference status`. Hata boot'u ÇÖKERTMEZ (görünür). `tests/test_boot_auto_inference.py` (4). `.env.example`:
     MIO_AUTO_INFERENCE. Tam süit **859+2skip**.
-  - **🎉 MIO çalışacağı ortamı YÖNETİYOR + açılışta OTOMATİK hazırlayabiliyor** (opt-in). SIRADAKİ adaylar:
-    Advisor'ı seçili modelle otomatik bağla (ensure_ready sonrası advisor o modeli kullansın), API ağ-auth
-    (token/mTLS), Resilience'ı connector çağrılarına sar (Ollama soğuk-başlangıç = tam retry senaryosu).
+  - **✅ Interface Architecture (Anayasa) + CLI Alpha Redesign TAMAM** (kullanıcı 2 direktif: "tek OS çok arayüz,
+    iş mantığı arayüzde ASLA" + "CLI = Executive Command Center"). `docs/constitution/INTERFACE_ARCHITECTURE.md`
+    anayasa artefaktı. **appservice = Application Service Layer** (arayüz-agnostik DTO; iş mantığı yok); yeni DTO'lar
+    `diagnose`/`executive_summary`/`models_overview`/`connect_env`. **CLI premium yeniden tasarım:** `cli_ui.py`
+    (ANSI, TTY/NO_COLOR-aware, UTF-8 reconfigure + ASCII fallback Windows-güvenli, minimal palet/rainbow YOK) +
+    `cli_render.py` (DTO→metin, bilinmeyen→JSON güvenli). `cli.py` refactor: **dispatch/render ayrımı** (dispatch
+    yalnız appservice delege), Executive Startup Sequence (banner+boot steps+hardware awareness statusline), MIO ❯
+    prompt, kategorili help, yeni komutlar (executive/diagnose/models), **--json** ham çıktı. **Backward-compat:**
+    run_command varsayılan style=json (mevcut testler korunur); interactive/tek-atış-TTY rich. HTTP: GET /diagnose,
+    /executive, /models (AYNI DTO — interface eşitliği). Fitness: `tests/test_interface_architecture.py` (arayüz
+    iş-mantığı importu YOK + CLI/HTTP aynı DTO). `tests/test_cli_ui.py`. Tam süit **874+2skip**.
+  - **🎉 MIO tek-OS-çok-arayüz + premium CLI command bridge.** SIRADAKİ adaylar (direktifin kalan kalemleri):
+    MCP first-class manager (mcp list/status/doctor/install...), HTTP server lifecycle (start/stop/status CLI'dan),
+    workspace CRUD, auto-complete + persistent history (readline), live `watch` event stream, tokens/sec ölçümü,
+    Advisor'ı seçili modelle otomatik bağla, API ağ-auth (token/mTLS).
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her
