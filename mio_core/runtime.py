@@ -41,6 +41,9 @@ from mio_core.domains.distributed_execution import DistributedExecutionDomain, D
 from mio_core.domains.autonomous_ops import AutonomousOperationsDomain, AutoOpsRepository
 from mio_core.domains.digital_twin import DigitalTwinDomain, DigitalTwinRepository
 from mio_core.domains.extension_sdk import ExtensionSDKDomain, ExtensionRepository
+from mio_core.domains.presentation import PresentationDomain, PresentationRepository
+from mio_core.domains.conversation import ConversationDomain
+from mio_core.domains.conversation import ConversationRepository as LiveConversationRepository
 from mio_core.connectors import Advisor, ConnectorManager, ConnectorRegistry
 from mio_core.monitoring import MonitoringAdapter
 from mio_core.platform.config import Config
@@ -121,7 +124,8 @@ _READINESS_DOMAINS = (
     "finance", "sales", "marketing", "customer_success",
     "vision", "voice", "media", "web", "device", "iot",
     "model_management", "multi_agent", "marketplace_domain", "knowledge_marketplace", "federation",
-    "distributed_execution", "autonomous_operations", "digital_twin", "extension_sdk",
+    "distributed_execution", "autonomous_operations", "digital_twin", "extension_sdk", "presentation",
+    "conversation",
 )
 
 
@@ -212,6 +216,8 @@ class MIORuntime:
         self.autonomous_operations: AutonomousOperationsDomain = components["autonomous_operations"]
         self.digital_twin: DigitalTwinDomain = components["digital_twin"]
         self.extension_sdk: ExtensionSDKDomain = components["extension_sdk"]
+        self.presentation: PresentationDomain = components["presentation"]
+        self.conversation: ConversationDomain = components["conversation"]
         # Capability Adapter Layer (Connector): Executive yalnız execute(capability, request) bilir.
         self.connector_registry: ConnectorRegistry = components["connector_registry"]
         self.connectors: ConnectorManager = components["connectors"]
@@ -748,7 +754,17 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
     extension_repo = ExtensionRepository(_p("extensions.db"))
     extension_sdk = ExtensionSDKDomain(extension_repo, bus=bus)
 
-    # --- Capability Adapter Layer (Connector): Executive→Manager→[AI/Comm/Productivity/System]. Connector'lar
+    # --- Presentation Domain: sunum mantığı (konuşma/podcast/video/webinar/... senaryo+akış+slayt). Dış sistemi
+    #     BİLMEZ; yalnız CapabilityIntent üretir. Yürütmeye Executive karar verir (ConnectorManager Executive'te). ---
+    presentation_repo = PresentationRepository(_p("presentation.db"))
+    presentation = PresentationDomain(presentation_repo, bus=bus)
+
+    # --- Conversation Domain: gerçek zamanlı etkileşim mantığı (mesaj/moderasyon/öncelik/sıra). Platformu BİLMEZ;
+    #     yalnız CapabilityIntent üretir. Moderasyon KARAR VERMEZ (Executive'e öneri). ---
+    live_conversation_repo = LiveConversationRepository(_p("conversation.db"))
+    conversation = ConversationDomain(live_conversation_repo, bus=bus)
+
+    # --- Capability Adapter Layer (Connector): Executive→Manager→[AI/Comm/Productivity/System/Media]. Connector'lar
     #     runtime.connectors.register(...) ile bağlanır; hiçbiri yoksa dürüst connector_unavailable (çökmez). ---
     connector_registry = ConnectorRegistry()
     connectors = ConnectorManager(connector_registry, bus=bus)
@@ -779,7 +795,8 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
         marketplace_domain=marketplace_domain, knowledge_marketplace=knowledge_marketplace,
         federation=federation, distributed_execution=distributed_execution,
         autonomous_operations=autonomous_operations, digital_twin=digital_twin,
-        extension_sdk=extension_sdk, connector_registry=connector_registry, connectors=connectors,
+        extension_sdk=extension_sdk, presentation=presentation, conversation=conversation,
+        connector_registry=connector_registry, connectors=connectors,
         advisor=advisor, mcp_hub=mcp_hub,
         bus=bus, versions=versions, marketplace=marketplace, recommendation=recommendation,
         workspace=workspace, config=cfg,
@@ -792,7 +809,8 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
                 research_repo, document_repo, data_repo, business_repo, finance_repo, sales_repo,
                 marketing_repo, customer_repo, vision_repo, voice_repo, media_repo, web_repo, device_repo,
                 iot_repo, model_repo, multi_agent_repo, marketplace_repo, knowledge_market_repo,
-                federation_repo, dist_exec_repo, auto_ops_repo, digital_twin_repo, extension_repo],
+                federation_repo, dist_exec_repo, auto_ops_repo, digital_twin_repo, extension_repo,
+                presentation_repo, live_conversation_repo],
         closeables=[c for c in (mcp_client,) if c is not None],
     )
 

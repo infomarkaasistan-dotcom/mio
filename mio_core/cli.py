@@ -38,6 +38,15 @@ _HELP_SECTIONS = [
                     ("connectors", "kayıtlı connector'lar + health"),
                     ("capabilities", "capability → sağlayan connector'lar"),
                     ("execute <cap> [json]", "capability çalıştır (connector yoksa unavailable)")]),
+    ("Presentation", [("present list", "sunum senaryoları"),
+                      ("present outline <t> <json>", "outline'dan senaryo üret"),
+                      ("present plan <id>", "sunum niyet planı (yürütme yok)"),
+                      ("present deliver <id> [approve]", "Executive: niyetleri ConnectorManager ile yürüt")]),
+    ("Conversation", [("chat queue", "cevap bekleyen mesajlar (öncelik sırası)"),
+                      ("chat summary", "konuşma özeti + moderasyon"),
+                      ("chat receive <user> <text>", "mesaj al + sınıflandır + moderasyon tespiti"),
+                      ("chat reply <id> <text>", "Executive: cevap niyetini yürüt"),
+                      ("chat moderate <id> <action>", "Executive: moderasyon niyeti (onay gerektirir)")]),
     ("MCP", [("mcp list", "kayıtlı MCP sunucuları"),
              ("mcp status / doctor", "MCP sağlık / tam teşhis"),
              ("mcp install <name> [json]", "MCP sunucusu kaydet"),
@@ -129,6 +138,10 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
             return _do_inference(mio, rest)
         if name == "mcp":
             return _do_mcp(mio, rest)
+        if name in ("present", "presentation"):
+            return _do_present(mio, rest)
+        if name in ("chat", "conversation", "conv"):
+            return _do_chat(mio, rest)
         if name == "connect":
             return 0, "raw", appservice.connect_env(mio)
         if name == "config":
@@ -210,6 +223,57 @@ def _do_mcp(mio, rest: list) -> tuple[int, str, Any]:
         return 0, "raw", appservice.mcp_trust(mio, args[0], args[1])
     return 2, "text", ("kullanım: mcp [list | status | doctor | discover | stats | capabilities | "
                        "info <id> | install <name> [json] | remove <id> | enable | trust <id> <level>]")
+
+
+def _do_present(mio, rest: list) -> tuple[int, str, Any]:
+    """Presentation alt-komutları — appservice'e delege. deliver = Executive köprüsü (niyetleri yürütür)."""
+    sub = rest[0] if rest else "list"
+    args = rest[1:]
+    if sub in ("list", "ls"):
+        return 0, "raw", appservice.presentation_list(mio)
+    if sub == "plan":
+        if not args:
+            return 2, "text", "kullanım: present plan <script_id>"
+        return 0, "raw", appservice.presentation_plan(mio, args[0])
+    if sub == "deliver":
+        if not args:
+            return 2, "text", "kullanım: present deliver <script_id> [approve]"
+        approve = len(args) > 1 and args[1].lower() in ("approve", "yes", "1", "true")
+        return 0, "raw", appservice.presentation_deliver(mio, args[0], approve=approve)
+    if sub == "outline":
+        if len(args) < 2:
+            return 2, "text", 'kullanım: present outline <title> <json-liste>  ör: present outline "Sunum" ["A","B"]'
+        try:
+            parsed = json.loads(" ".join(args[1:]))
+        except json.JSONDecodeError as exc:
+            return 2, "text", f"geçersiz JSON: {exc}"
+        items = parsed if isinstance(parsed, list) else (parsed.get("outline", []) if isinstance(parsed, dict) else [])
+        return 0, "raw", appservice.presentation_outline(mio, args[0], items)
+    return 2, "text", "kullanım: present [list | plan <id> | deliver <id> [approve] | outline <title> <json>]"
+
+
+def _do_chat(mio, rest: list) -> tuple[int, str, Any]:
+    """Conversation alt-komutları — appservice'e delege. reply/moderate = Executive köprüsü (niyeti yürütür)."""
+    sub = rest[0] if rest else "queue"
+    args = rest[1:]
+    if sub == "queue":
+        return 0, "raw", appservice.conversation_queue(mio)
+    if sub == "summary":
+        return 0, "raw", appservice.conversation_summary(mio)
+    if sub == "receive":
+        if len(args) < 2:
+            return 2, "text", "kullanım: chat receive <user> <text...>"
+        return 0, "raw", appservice.conversation_receive(mio, args[0], " ".join(args[1:]))
+    if sub == "reply":
+        if len(args) < 2:
+            return 2, "text", "kullanım: chat reply <message_id> <text...>"
+        return 0, "raw", appservice.conversation_reply(mio, args[0], " ".join(args[1:]))
+    if sub in ("moderate", "mod"):
+        if len(args) < 2:
+            return 2, "text", "kullanım: chat moderate <message_id> <delete|timeout|ban|pin> [approve]"
+        approve = len(args) > 2 and args[2].lower() in ("approve", "yes", "1", "true")
+        return 0, "raw", appservice.conversation_moderate(mio, args[0], args[1], approve=approve)
+    return 2, "text", "kullanım: chat [queue | summary | receive <user> <text> | reply <id> <text> | moderate <id> <action>]"
 
 
 def _parse_json_arg(parts: list):

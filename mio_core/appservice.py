@@ -191,6 +191,79 @@ def mcp_contract(mio) -> dict[str, Any]:
     return mio.mcp_management.contract()
 
 
+# ---- Presentation yüzeyi + Executive köprüsü (domain NİYET üretir; Executive YÜRÜTÜR) ----
+def presentation_create(mio, title: str, *, actor: str = "owner", **kwargs) -> dict[str, Any]:
+    return mio.presentation.create_script(actor, title, **kwargs)
+
+
+def presentation_outline(mio, title: str, outline: list, *, actor: str = "owner", **kwargs) -> dict[str, Any]:
+    return mio.presentation.outline_to_script(actor, title, outline, **kwargs)
+
+
+def presentation_plan(mio, script_id: str, *, actor: str = "owner") -> dict[str, Any]:
+    """Domain'in ürettiği niyet (CapabilityIntent) listesi — YÜRÜTME YOK (yalnız plan)."""
+    return mio.presentation.plan_delivery(actor, script_id)
+
+
+def presentation_list(mio, *, actor: str = "owner", kind: Optional[str] = None) -> list[dict[str, Any]]:
+    return mio.presentation.list_scripts(actor, kind=kind)
+
+
+def presentation_deliver(mio, script_id: str, *, actor: str = "owner", approve: bool = False) -> dict[str, Any]:
+    """EXECUTIVE KÖPRÜSÜ: Presentation niyetlerini ConnectorManager ile YÜRÜTÜR (domain yürütmez — katman ayrımı).
+
+    ConnectorManager yalnız burada (Executive/Application Service katmanı) çağrılır. Yüksek-risk niyet onaysızsa
+    yürütülmez (Madde 24 → outcome requires_approval); connector yoksa connector_unavailable (çökmez)."""
+    plan = mio.presentation.plan_delivery(actor, script_id)
+    results = []
+    for intent in plan["intents"]:
+        needs = intent.get("requires_approval", False)
+        outcome = mio.connectors.execute(intent["capability"], intent.get("request", {}),
+                                         actor=actor, user_approved=(approve if needs else False))
+        results.append({"capability": intent["capability"], "label": intent.get("label", ""),
+                        "requires_approval": needs, "outcome": outcome})
+    executed = sum(1 for r in results if r["outcome"].get("status") == "executed")
+    return {"script_id": script_id, "kind": plan.get("kind"), "total": len(results),
+            "executed": executed, "results": results}
+
+
+# ---- Conversation yüzeyi + Executive köprüsü (domain NİYET üretir; Executive YÜRÜTÜR) ----
+def conversation_receive(mio, user_handle: str, text: str, *, actor: str = "owner",
+                         platform_ref: Optional[dict] = None) -> dict[str, Any]:
+    """Mesaj işle (sınıflandır + moderasyon TESPİTİ). Cevap göndermez — Executive karar verir."""
+    return mio.conversation.receive(actor, user_handle, text, platform_ref=platform_ref)
+
+
+def conversation_queue(mio, *, actor: str = "owner", limit: int = 20) -> list[dict[str, Any]]:
+    return mio.conversation.queue(actor, limit=limit)
+
+
+def conversation_summary(mio, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.conversation.summarize(actor)
+
+
+def conversation_reply(mio, message_id: str, text: str, *, actor: str = "owner", private: bool = False,
+                       approve: bool = False) -> dict[str, Any]:
+    """EXECUTIVE KÖPRÜSÜ: cevap niyetini ConnectorManager ile YÜRÜTÜR (domain yürütmez). conversation.reply."""
+    intent = mio.conversation.plan_reply(actor, message_id, text, private=private)
+    needs = intent.get("requires_approval", False)
+    outcome = mio.connectors.execute(intent["capability"], intent.get("request", {}),
+                                     actor=actor, user_approved=(approve if needs else False))
+    if outcome.get("status") == "executed":
+        mio.conversation.mark_answered(actor, message_id)
+    return {"intent": intent, "outcome": outcome}
+
+
+def conversation_moderate(mio, message_id: str, action: str, *, actor: str = "owner",
+                          approve: bool = False) -> dict[str, Any]:
+    """EXECUTIVE KÖPRÜSÜ: moderasyon niyetini YÜRÜTÜR. Yüksek-risk (delete/timeout/ban/pin) onaysız yürütülmez."""
+    intent = mio.conversation.moderation_intent(actor, message_id, action)
+    needs = intent.get("requires_approval", False)
+    outcome = mio.connectors.execute(intent["capability"], intent.get("request", {}),
+                                     actor=actor, user_approved=(approve if needs else False))
+    return {"intent": intent, "outcome": outcome}
+
+
 # ---- Monitoring yüzeyi — CLI+HTTP ortak ----
 def prometheus_metrics(mio) -> str:
     """Prometheus text exposition (scrape). Çekirdek metriklerini Monitoring Adapter formatlar."""
@@ -292,4 +365,8 @@ __all__ = [
     "diagnose", "executive_summary", "models_overview", "config_diagnostics",
     "mcp_list", "mcp_status", "mcp_doctor", "mcp_discover", "mcp_stats", "mcp_info",
     "mcp_register", "mcp_remove", "mcp_activate", "mcp_trust", "mcp_contract",
+    "presentation_create", "presentation_outline", "presentation_plan", "presentation_list",
+    "presentation_deliver",
+    "conversation_receive", "conversation_queue", "conversation_summary", "conversation_reply",
+    "conversation_moderate",
 ]

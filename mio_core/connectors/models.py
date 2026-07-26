@@ -17,7 +17,8 @@ class ConnectorCategory:
     COMMUNICATION = "communication"   # SMTP/Gmail/Slack/Discord/WhatsApp/Telegram
     PRODUCTIVITY = "productivity"     # Calendar/Outlook/Drive/OneDrive/Dropbox
     SYSTEM = "system"            # Shell/Filesystem/Docker/Kubernetes/Git/GitHub
-    ALL = {AI, COMMUNICATION, PRODUCTIVITY, SYSTEM}
+    MEDIA = "media"              # TTS/STT/stream/podcast/video/screen/camera (Presentation Domain kullanır)
+    ALL = {AI, COMMUNICATION, PRODUCTIVITY, SYSTEM, MEDIA}
 
 
 class Cap:
@@ -44,11 +45,52 @@ class Cap:
     K8S_APPLY = "k8s.apply"
     GIT_CLONE = "git.clone"
     GITHUB_PR = "github.pr"
+    # Media (Presentation Domain bunları capability olarak ister; connector adapter sağlar)
+    SPEECH_SYNTHESIZE = "speech.synthesize"
+    SPEECH_TRANSCRIBE = "speech.transcribe"
+    AUDIO_RECORD = "audio.record"
+    AUDIO_PLAY = "audio.play"
+    AUDIO_MIX = "audio.mix"
+    AUDIO_CONVERT = "audio.convert"
+    STREAM_START = "stream.start"
+    STREAM_STOP = "stream.stop"
+    STREAM_SEND_AUDIO = "stream.send_audio"
+    STREAM_CAPTURE = "stream.capture"
+    PODCAST_RENDER = "podcast.render"
+    PODCAST_PUBLISH = "podcast.publish"
+    VIDEO_RENDER = "video.render"
+    VIDEO_ENCODE = "video.encode"
+    VIDEO_PUBLISH = "video.publish"
+    CAMERA_CAPTURE = "camera.capture"
+    SCREEN_CAPTURE = "screen.capture"
+    SCREEN_SHARE = "screen.share"
+    MICROPHONE_RECORD = "microphone.record"
+    SUBTITLE_GENERATE = "subtitle.generate"
+    SUBTITLE_TRANSLATE = "subtitle.translate"
+    SLIDE_NEXT = "slide.next"
+    SLIDE_PREVIOUS = "slide.previous"
+    # Conversation (canlı etkileşim — Communication connector'lar sağlar: Discord/Slack/Telegram/YouTube...)
+    CONV_RECEIVE = "conversation.receive"
+    CONV_REPLY = "conversation.reply"
+    CONV_BROADCAST = "conversation.broadcast"
+    CONV_PRIVATE_REPLY = "conversation.private_reply"
+    CONV_PIN = "conversation.pin"
+    CONV_DELETE = "conversation.delete"
+    CONV_TIMEOUT = "conversation.timeout"
+    CONV_BAN = "conversation.ban"
+    CONV_REACTION = "conversation.reaction"
+    NOTIFICATION_SEND = "notification.send"
 
 
-# Geri-alınamaz/tehlikeli capability'ler → ONAY ister (Madde 24; System/mutasyon ağırlıklı).
+# Geri-alınamaz/tehlikeli/gizlilik-riskli capability'ler → ONAY ister (Madde 24).
 HIGH_RISK_CAPABILITIES = frozenset({
+    # System/mutasyon
     Cap.SHELL_EXEC, Cap.FS_WRITE, Cap.FILES_WRITE, Cap.DOCKER_RUN, Cap.K8S_APPLY, Cap.GITHUB_PR,
+    # Media: dış yayın / gizlilik (canlı yayın, yayınlama, ekran/kamera/mikrofon)
+    Cap.STREAM_START, Cap.STREAM_STOP, Cap.PODCAST_PUBLISH, Cap.VIDEO_PUBLISH,
+    Cap.SCREEN_SHARE, Cap.CAMERA_CAPTURE, Cap.MICROPHONE_RECORD,
+    # Conversation: moderasyon / kitle (geri-alınamaz sosyal etki)
+    Cap.CONV_DELETE, Cap.CONV_TIMEOUT, Cap.CONV_BAN, Cap.CONV_BROADCAST, Cap.CONV_PIN,
 })
 
 

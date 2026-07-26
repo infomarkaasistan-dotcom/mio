@@ -111,6 +111,14 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.mcp_stats(mio)
             if len(parts) == 3 and parts[0] == "mcp" and parts[1] == "info":
                 return 200, appservice.mcp_info(mio, parts[2])
+            if parts == ["presentation"]:
+                return 200, appservice.presentation_list(mio)
+            if len(parts) == 3 and parts[0] == "presentation" and parts[2] == "plan":
+                return 200, appservice.presentation_plan(mio, parts[1])
+            if parts == ["conversation", "queue"]:
+                return 200, appservice.conversation_queue(mio)
+            if parts == ["conversation", "summary"]:
+                return 200, appservice.conversation_summary(mio)
             if parts == ["inference", "analyze"]:
                 return 200, appservice.inference_analyze(mio)
             if parts == ["connectors"]:
@@ -137,6 +145,21 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                     mio, approve=b.get("approve", []), auto_pull=b.get("auto_pull", True),
                     run_test=b.get("run_test", True))
                 return (200 if rep.get("ready") else 202), rep    # 202: kabul edildi, hazır değil/onay bekliyor
+            # POST /presentation/{id}/deliver  Executive köprüsü (niyetleri ConnectorManager ile yürütür)
+            if len(parts) == 3 and parts[0] == "presentation" and parts[2] == "deliver":
+                approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
+                return 200, appservice.presentation_deliver(mio, parts[1], approve=approve)
+            # POST /conversation/receive  gövde={user_handle, text, platform_ref}
+            if parts == ["conversation", "receive"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.conversation_receive(mio, b.get("user_handle", ""), b.get("text", ""),
+                                                            platform_ref=b.get("platform_ref"))
+            # POST /conversation/{id}/reply  gövde={text, private}
+            if len(parts) == 3 and parts[0] == "conversation" and parts[2] == "reply":
+                b = body if isinstance(body, dict) else {}
+                approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
+                return 200, appservice.conversation_reply(mio, parts[1], b.get("text", ""),
+                                                          private=b.get("private", False), approve=approve)
             # POST /capabilities/{capability}  gövde = request ; ?actor=&approved=true
             if len(parts) == 2 and parts[0] == "capabilities":
                 actor = query.get("actor", ["owner"])[0]

@@ -102,9 +102,22 @@
     doctor|install|remove|enable|trust|info|discover|stats|capabilities]`; HTTP GET /mcp,/mcp/status,/mcp/doctor,
     /mcp/stats,/mcp/info/{id}. Boş durum DÜRÜST (placeholder yok). `tests/test_mcp_manager.py` (9: init/wiring/
     register/discover/health/trust/CLI/HTTP/persistence). Tam süit **904+2skip**.
-  - **🎉 tek-OS-çok-arayüz + config-pipeline sağlam + MCP CLI'dan yönetilebilir.** SIRADAKİ adaylar: HTTP server
-    lifecycle CLI'dan (start/stop/status), workspace CRUD, auto-complete + persistent history (readline), live
-    `watch` event stream, tokens/sec ölçümü, Advisor'ı seçili modelle otomatik bağla, API ağ-auth.
+  - **✅ Presentation Domain + Media kategorisi TAMAM** (kullanıcı direktifi + mimari düzeltme). `mio_core/domains/
+    presentation/` — 12 tür (speech/podcast/video/meeting/webinar/livestream/lesson/demo/screen_share/slides/avatar/
+    conversation). **KATMAN AYRIMI:** domain ConnectorManager çağırmaz, dış sistem bilmez; yalnız **CapabilityIntent**
+    üretir. **Executive köprüsü** appservice.presentation_deliver ConnectorManager'ı yalnız burada çağırır. Madde 24
+    (stream.start/publish/screen/camera/mic = HIGH_RISK). ConnectorCategory.MEDIA + media capability'ler (speech.*/
+    stream.*/podcast.*/video.*/slide.*/subtitle.*). `mio.presentation`. CLI `present`, HTTP /presentation. test (8).
+  - **✅ Conversation Domain TAMAM** (kullanıcı direktifi — Presentation'a simetrik). `mio_core/domains/conversation/`
+    — gerçek zamanlı etkileşim: mesaj sınıflandırma/niyet + spam/flood/hakaret TESPİTİ + öncelik(VIP) + moderasyon
+    ÖNERİSİ + sıra + özet. **Moderasyon KARAR VERMEZ** (Executive'e öneri — Madde 3). Platformu bilmez; niyet üretir
+    (conversation.reply/delete/ban...). Executive köprüsü conversation_reply/moderate. Madde 24 (delete/timeout/ban/
+    broadcast/pin). İsim çakışması çözüldü (communication'ın ConversationRepository'si vs yeni → LiveConversationRepo
+    alias). `mio.conversation`. CLI `chat`, HTTP /conversation. test (9). Tam süit **931+2skip** (45 domain).
+  - **🎉 Presentation(ne anlatılacak) + Conversation(kim ne yazıyor) ayrımı — çok-platform canlı etkileşim temeli.**
+    SIRADAKİ (kalan CLI direktif + 3. direktif): OpenManus/MetaGPT mimari analiz raporu (2. nesil yol haritası),
+    Media Connector Pack gerçek adapter'lar (Piper/Whisper/FFmpeg/OBS), HTTP server lifecycle CLI, workspace CRUD,
+    auto-complete + persistent history, live `watch` stream, tokens/sec, Advisor↔model bağlama, API ağ-auth.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her
