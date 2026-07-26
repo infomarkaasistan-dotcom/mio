@@ -44,6 +44,9 @@ _HELP_SECTIONS = [
                       ("present outline <t> <json>", "outline'dan senaryo üret"),
                       ("present plan <id>", "sunum niyet planı (yürütme yok)"),
                       ("present deliver <id> [approve]", "Executive: niyetleri ConnectorManager ile yürüt")]),
+    ("Business", [("business list", "izole işletme çalışma alanları"),
+                  ("business create <ad> [tip]", "yeni işletme (personal/marketing_agency/ecommerce/saas...)"),
+                  ("business info <id>", "işletme detayı (departman/hedef)")]),
     ("Workflow", [("workflow list", "iş akışları (DAG)"),
                   ("workflow create <name> <json>", "görev grafı oluştur (DAG doğrulanır)"),
                   ("workflow plan <id>", "topolojik yürütme planı"),
@@ -77,7 +80,7 @@ KNOWN_COMMANDS = frozenset({
     "connectors", "capabilities", "metrics", "prometheus", "readiness", "health", "events", "contract",
     "stats", "call", "execute", "inference", "mcp", "present", "presentation", "chat", "conversation",
     "conv", "workflow", "wf", "connect", "config", "workspace", "server", "serve", "http", "shell",
-    "quit", "exit", "q",
+    "business", "işletme", "isletme", "quit", "exit", "q",
 })
 
 
@@ -164,6 +167,8 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
             return _do_chat(mio, rest)
         if name in ("workflow", "wf"):
             return _do_workflow(mio, rest)
+        if name in ("business", "işletme", "isletme"):
+            return _do_business(mio, rest)
         if name == "connect":
             return 0, "raw", appservice.connect_env(mio)
         if name == "config":
@@ -285,6 +290,32 @@ def _do_present(mio, rest: list) -> tuple[int, str, Any]:
         items = parsed if isinstance(parsed, list) else (parsed.get("outline", []) if isinstance(parsed, dict) else [])
         return 0, "raw", appservice.presentation_outline(mio, args[0], items)
     return 2, "text", "kullanım: present [list | plan <id> | deliver <id> [approve] | outline <title> <json>]"
+
+
+def _do_business(mio, rest: list) -> tuple[int, str, Any]:
+    """Business Workspace (çoklu izole işletme) alt-komutları — appservice'e delege."""
+    sub = rest[0] if rest else "list"
+    args = rest[1:]
+    if sub in ("list", "ls"):
+        return 0, "raw", appservice.business_list(mio)
+    if sub in ("info", "show", "get"):
+        if not args:
+            return 2, "text", "kullanım: business info <id|ad>"
+        return 0, "raw", appservice.business_get(mio, args[0])
+    if sub == "create":
+        if not args:
+            return 2, "text", "kullanım: business create <ad> [tip]  tipler: personal/marketing_agency/ecommerce/factory/restaurant/saas"
+        btype = args[1] if len(args) > 1 else "personal"
+        rec = appservice.business_create(mio, args[0], business_type=btype)
+        return 0, "raw", {**rec, "activate": f"python -m mio_core --workspace {rec['path']}"}
+    if sub in ("delete", "rm"):
+        if not args:
+            return 2, "text", "kullanım: business delete <id> [purge]"
+        purge = len(args) > 1 and args[1].lower() in ("purge", "hard", "yes")
+        return 0, "raw", appservice.business_delete(mio, args[0], purge=purge)
+    if sub == "stats":
+        return 0, "raw", appservice.business_stats(mio)
+    return 2, "text", "kullanım: business [list | create <ad> [tip] | info <id> | delete <id> [purge] | stats]"
 
 
 def _do_workflow(mio, rest: list) -> tuple[int, str, Any]:

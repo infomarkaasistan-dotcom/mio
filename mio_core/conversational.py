@@ -30,6 +30,7 @@ def _normalize(text: str) -> str:
 # 'mesaj' → 'mesajlari', 'is akis' → 'is akislari'). Sıra ÖNEMLİ: özelden genele (ilk eşleşen kazanır).
 _INTENT_PATTERNS = [
     ("greeting", r"\b(merhaba|selam|gunaydin|hey|hello|iyi aksam)"),
+    ("business", r"\b(isletme|is yeri|sirket kur|yeni sirket|workspace|departman kur|business)"),
     ("diagnose", r"\b(saglik|saglig|tani|teshis|kontrol et|diagnose|health|sorun var)"),
     ("hardware", r"\b(donanim|gpu|cuda|vram|hardware|islemci|ekran kart)"),
     ("models", r"\b(model|llm|ollama|yapay zeka)"),
@@ -150,6 +151,15 @@ class ConversationalOrchestrator:
             return self._resp(intent, f"Yapılandırma yüklendi (.env {'var' if cfg['env_file_loaded'] else 'yok'}). "
                               f"LLM: {'açık' if cfg.get('llm_enabled') else 'kapalı'}, "
                               f"Ollama: {'erişilebilir' if cfg.get('ollama_reachable') else 'kapalı'}.", cfg)
+        if intent == "business":
+            bl = appservice.business_list(mio)
+            if bl:
+                names = ", ".join(b["name"] for b in bl[:5])
+                return self._resp(intent, f"{len(bl)} işletmeniz var: {names}. Yeni oluşturmak için "
+                                  "'business create <ad> <tip>'. Detay: 'business info <ad>'.", {"businesses": bl})
+            return self._resp(intent, "Henüz işletmeniz yok. Oluşturmak için: 'business create <ad> <tip>' "
+                              "(tipler: personal/marketing_agency/ecommerce/factory/restaurant/saas).",
+                              {"businesses": []})
         # UNKNOWN → LLM danışmana sor (varsa; DANIŞMAN, karar vermez) ya da öner
         return self._unknown(text, actor)
 

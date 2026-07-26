@@ -235,6 +235,7 @@ class MIORuntime:
         self.inference_status: Optional[dict[str, Any]] = None
         self._http_handle = None             # gömülü HTTP sunucusu yaşam-döngüsü (lazy; CLI'dan yönetilir)
         self._conversational = None          # doğal dil orkestratörü (lazy; konuşma bağlamı tutar)
+        self._business = None                # İşletme çalışma alanı yöneticisi (lazy; platform servisi)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -339,6 +340,18 @@ class MIORuntime:
             from mio_core.conversational import ConversationalOrchestrator
             self._conversational = ConversationalOrchestrator(self)
         return self._conversational
+
+    @property
+    def business(self):
+        """Business Workspace Manager (çoklu izole işletme; platform servisi, paylaşılır). Lazy.
+
+        Registry, MIO_HOME (config) ya da workspace'in üst dizininde tutulur; her işletme kendi izole dizininde."""
+        if self._business is None:
+            from mio_core.platform.workspaces import BusinessWorkspaceManager
+            home = self.config.get("MIO_HOME") or os.path.dirname(os.path.abspath(self._workspace or ".mio")) \
+                or "."
+            self._business = BusinessWorkspaceManager(home)
+        return self._business
 
     def readiness(self) -> dict:
         """Operational Readiness self-check (DETERMİNİSTİK; dış adapter gerektirmez).

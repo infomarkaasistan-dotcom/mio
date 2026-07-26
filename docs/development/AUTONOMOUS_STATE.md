@@ -141,9 +141,17 @@
     (komut değilse→ask) + `ask` komutu + KNOWN_COMMANDS; HTTP POST /converse (aynı DTO). `tests/test_conversational.py`
     (27). İki mod: developer (mevcut komutlar) + conversational (CEO) AYNI backend. Tam süit **981+2skip**.
   - **🎉 MIO artık doğal dille konuşuluyor** ("durum nedir"/"sunum hazırla"/"iş akışları") — tek OS deneyimi.
-    SIRADAKİ (Unified Product Experience kalan): Business Workspace (izole business state — mevcut domainleri
-    scope'la, yeni registry YOK), Onboarding (ilk açılış 5dk), CEO experience (intent→plan→delegate→execute→report),
-    Agent management, Dashboard DTO. Ayrıca yol haritası Y1 Learning trajectory, Y2 Reasoning verifier.
+  - **✅ Business Workspace (Unified Product Experience #4) TAMAM** — `mio_core/platform/workspaces.py`
+    BusinessWorkspaceManager: tek sahip, çok İZOLE işletme. **Yeni registry/architecture YOK** — izolasyon mevcut
+    boot() workspace dizin parametresinin yeniden kullanımıyla (her işletme ayrı dizin = izole state; platform kodu
+    paylaşılır). JSON kaydı `<home>/businesses.json`, dizinler `<home>/businesses/<id>/`. 6 template (personal/
+    marketing_agency/ecommerce/factory/restaurant/saas + departmanlar). create/list/get/delete(purge)/set_objectives/
+    stats; ad çakışması (case-insensitive) + geçersiz tip reddi. `mio.business` lazy (home = config MIO_HOME veya
+    workspace parent). appservice business_list/create/get/delete/stats; CLI `business`; conversational "business"
+    intent; HTTP GET/POST /business (aynı DTO). `tests/test_business_workspace.py` (6). Tam süit **987+2skip**.
+    SIRADAKİ (Unified Product Experience kalan): Onboarding (ilk açılış 5dk), CEO experience (intent→plan→delegate→
+    execute→report), Agent management (mevcut multi_agent), Dashboard DTO. Ayrıca yol haritası Y1 Learning
+    trajectory, Y2 Reasoning verifier.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

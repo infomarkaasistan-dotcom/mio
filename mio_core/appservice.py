@@ -139,6 +139,31 @@ def config_diagnostics(mio) -> dict[str, Any]:
     return diag
 
 
+# ---- Business Workspace yüzeyi (çoklu izole işletme; CLI/UI ortak) ----
+def business_list(mio) -> list[dict[str, Any]]:
+    return mio.business.list()
+
+
+def business_create(mio, name: str, *, business_type: str = "personal",
+                    objectives: Optional[list] = None) -> dict[str, Any]:
+    return mio.business.create(name, business_type=business_type, objectives=objectives)
+
+
+def business_get(mio, business_id: str) -> dict[str, Any]:
+    b = mio.business.get(business_id)
+    if b is None:
+        raise NotFound(f"işletme bulunamadı: {business_id}")
+    return b
+
+
+def business_delete(mio, business_id: str, *, purge: bool = False) -> dict[str, Any]:
+    return mio.business.delete(business_id, purge=purge)
+
+
+def business_stats(mio) -> dict[str, Any]:
+    return mio.business.stats()
+
+
 # ---- Conversational yüzeyi (doğal dil → mevcut işlemler; CLI/UI/Voice ortak) ----
 def converse(mio, text: str, *, actor: str = "owner") -> dict[str, Any]:
     """Doğal dil isteğini Executive orkestratörüne verir → mevcut appservice işlemlerine yönlendirir.
@@ -466,5 +491,5 @@ __all__ = [
     "conversation_moderate",
     "server_start", "server_stop", "server_status", "workspace_info",
     "workflow_create", "workflow_list", "workflow_get", "workflow_plan", "workflow_run",
-    "converse",
+    "converse", "business_list", "business_create", "business_get", "business_delete", "business_stats",
 ]

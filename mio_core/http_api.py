@@ -115,6 +115,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.presentation_list(mio)
             if len(parts) == 3 and parts[0] == "presentation" and parts[2] == "plan":
                 return 200, appservice.presentation_plan(mio, parts[1])
+            if parts == ["business"]:
+                return 200, appservice.business_list(mio)
+            if len(parts) == 2 and parts[0] == "business":
+                return 200, appservice.business_get(mio, parts[1])
             if parts == ["workflow"]:
                 return 200, appservice.workflow_list(mio)
             if len(parts) == 2 and parts[0] == "workflow":
@@ -159,6 +163,12 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             if len(parts) == 3 and parts[0] == "workflow" and parts[2] == "run":
                 approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
                 return 200, appservice.workflow_run(mio, parts[1], approve=approve)
+            # POST /business  gövde={name, business_type, objectives} — yeni izole işletme
+            if parts == ["business"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.business_create(mio, b.get("name", ""),
+                                                       business_type=b.get("business_type", "personal"),
+                                                       objectives=b.get("objectives"))
             # POST /converse  gövde={text} — doğal dil → Executive orkestratörü (aynı DTO; Dashboard da kullanır)
             if parts == ["converse"]:
                 b = body if isinstance(body, dict) else {}
