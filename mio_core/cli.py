@@ -14,6 +14,8 @@ Komutlar:
   events [N]                      → son N event bus olayı (varsayılan 20)
   call <domain> <op> [json]       → bir domain operasyonunu reflektif çağırır (json = {"actor":"owner",...})
   hardware                        → CPU/RAM/GPU/VRAM/CUDA/Ollama teşhisi + CPU/GPU çıkarım + uyarı/öneri
+  inference analyze               → yerel çıkarım ortamı analizi (donanım+Ollama+modeller+yerleşim)
+  inference ensure-ready [onay..] → MIO ortamı hazırla: model seç/indir/fazlalık durdur/test (silme/kurulum onay)
   connect                         → env'e göre GERÇEK connector adapter'larını bağla (filesystem/git/smtp/...)
   connectors                      → kayıtlı connector'lar (kategori/capability/öncelik/health)
   capabilities                    → capability → sağlayan connector'lar kataloğu
@@ -78,6 +80,15 @@ def run_command(mio, argv: list) -> tuple[int, str]:
             return _do_call(mio, rest)
         if name == "hardware":                        # CPU/RAM/GPU/VRAM/CUDA/Ollama + çıkarım teşhisi
             return 0, _fmt(appservice.hardware_report(mio))
+        if name == "inference":                        # MIO ortamı yönetir (Ollama+model)
+            sub = rest[0] if rest else "analyze"
+            if sub == "analyze":
+                return 0, _fmt(appservice.inference_analyze(mio))
+            if sub in ("ensure-ready", "ensure", "prepare"):
+                approve = set(rest[1:])               # ör: inference ensure-ready install_ollama delete_unfit
+                rep = appservice.inference_ensure_ready(mio, approve=approve)
+                return (0 if rep.get("ready") else 1), _fmt(rep)
+            return 2, "kullanım: inference [analyze | ensure-ready [onay...]]"
         if name == "connect":                        # env'e göre gerçek connector'ları bağla
             from mio_core.connectors.adapters import register_from_env
             summary = register_from_env(mio.connectors, workspace=getattr(mio, "_workspace", ".mio"))

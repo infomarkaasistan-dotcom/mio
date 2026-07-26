@@ -44,6 +44,7 @@ from mio_core.domains.extension_sdk import ExtensionSDKDomain, ExtensionReposito
 from mio_core.connectors import Advisor, ConnectorManager, ConnectorRegistry
 from mio_core.monitoring import MonitoringAdapter
 from mio_core.platform.hardware import HardwareDiagnostics
+from mio_core.platform.local_inference import LocalInferenceManager
 from mio_core.domains.document_intelligence import DocumentIntelligenceDomain, DocumentRepository
 from mio_core.domains.execution import ExecutionDomain, ExecutionRepository
 from mio_core.domains.executive import ExecutiveDomain
@@ -219,6 +220,8 @@ class MIORuntime:
         self.monitoring: MonitoringAdapter = MonitoringAdapter(self.metrics, readiness_fn=self.readiness)
         # Hardware Diagnostics & Awareness (lazy — yalnız report() çağrılınca sistem taranır).
         self.hardware: HardwareDiagnostics = HardwareDiagnostics()
+        # Local Inference Manager: MIO çalışacağı ortamı yönetir (Ollama+modeller; analyze/ensure_ready).
+        self.local_inference: LocalInferenceManager = LocalInferenceManager(self.hardware)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]

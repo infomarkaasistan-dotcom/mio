@@ -62,9 +62,18 @@
     HTTP `GET /hardware`; appservice ortak. `tests/test_hardware.py` (9). **BU MAKİNE TEŞHİSİ:** RTX 3050 8GB VRAM
     (7GB boş) + CUDA 13.1 + 12-core AMD + 16GB RAM → YETENEKLİ; donma = model VRAM'e sığmayıp CPU'ya taştı (önceki
     testlerden çok model yüklü). Öneri: OLLAMA_MAX_LOADED_MODELS=1 + ≤7B model (mistral:7b). Tam süit **847+2skip**.
-  - **🎉 4 Interface katmanı + gerçek connector'lar + hardware awareness TAMAM.** SIRADAKİ adaylar: API ağ-auth
-    (token/mTLS), Resilience'ı connector çağrılarına sar (soğuk-başlangıç timeout'u = tam retry/backoff senaryosu),
-    Advisor'ı Executive karar-akışına danışman entegre, model-seçiminde hardware.recommend_model'i otomatik kullan.
+  - **✅ Local Inference Manager TAMAM** (kullanıcı: "mio çalışacağı ortamı yönetsin") — `mio_core/platform/
+    local_inference.py` LocalInferenceManager (enjekte runner/urlopen → deterministik): analyze (salt-okunur donanım+
+    Ollama+kurulu/yüklü modeller+yerleşim) + **ensure_ready** (uygun modeli DETERMİNİSTİK VRAM'e göre SEÇ → seçili-
+    olmayan yüklü modelleri DURDUR/VRAM boşalt güvenli → eksikse İNDİR additive → sağlık+HIZ testi → başarılıysa
+    "TEST BAŞARILI · Ollama bağlı · GPU"). **Madde 24:** model SİLME + Ollama KURULUMU onaysız YAPILMAZ (pending_
+    approval, önerir). **Donma önleme:** ağır test yalnız model GPU'ya sığıyorsa (aksi atla+uyar). `mio.local_
+    inference`. CLI `inference analyze|ensure-ready [onay..]`; HTTP `GET /inference/analyze`, `POST /inference/
+    ensure-ready`; appservice ortak. `tests/test_local_inference.py` (8). Canlı analiz doğrulandı (mistral:7b öneri,
+    qwen3.5:9b sığmaz). `docs/development/LOCAL_INFERENCE.md`. Tam süit **855+2skip**.
+  - **🎉 MIO artık çalışacağı ortamı YÖNETİYOR** (analiz→seç→durdur→indir→test→bildir; silme/kurulum onayla).
+    SIRADAKİ adaylar: boot()'ta opsiyonel otomatik ensure_ready (kullanıcı onayıyla), Advisor'ı model-seçimiyle
+    bağla (advisor otomatik uygun modeli kullansın), API ağ-auth, Resilience'ı connector'a sar.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

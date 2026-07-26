@@ -133,9 +133,22 @@ def hardware_report(mio) -> dict[str, Any]:
     return mio.hardware.report()
 
 
+# ---- Local Inference (MIO ortamı yönetir) yüzeyi — CLI+HTTP ortak ----
+def inference_analyze(mio) -> dict[str, Any]:
+    """Salt-okunur: donanım + Ollama + kurulu/yüklü modeller + CPU/GPU yerleşim."""
+    return mio.local_inference.analyze()
+
+
+def inference_ensure_ready(mio, *, approve=frozenset(), auto_pull: bool = True,
+                           run_test: bool = True) -> dict[str, Any]:
+    """Ortamı hazırla: uygun modeli seç, fazlalıkları durdur, eksikse indir, test et. SİLME/KURULUM onay ister."""
+    return mio.local_inference.ensure_ready(approve=frozenset(approve), auto_pull=auto_pull, run_test=run_test)
+
+
 __all__ = [
     "NotFound", "BadRequest", "PUBLIC_DOMAINS",
     "list_domains", "domain_contract", "domain_stats", "metrics", "readiness", "health", "events", "call",
     "connectors_overview", "capabilities_catalog", "execute_capability",
     "prometheus_metrics", "otlp_metrics", "hardware_report",
+    "inference_analyze", "inference_ensure_ready",
 ]

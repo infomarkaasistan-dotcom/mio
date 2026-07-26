@@ -39,6 +39,8 @@ _INDEX = {
         "GET /domains/{name}/stats": "domain metrikleri",
         "GET /events?limit=N": "son olaylar",
         "GET /hardware": "CPU/RAM/GPU/VRAM/CUDA/Ollama teşhisi + CPU/GPU çıkarım + uyarı",
+        "GET /inference/analyze": "yerel çıkarım ortamı analizi",
+        "POST /inference/ensure-ready": "MIO ortamı hazırla (model seç/indir/durdur/test; body={approve,auto_pull,run_test})",
         "GET /connectors": "kayıtlı connector'lar (Capability Adapter Layer)",
         "GET /capabilities": "capability → sağlayan connector'lar",
         "POST /domains/{name}/{operation}": "operasyon çağrısı (JSON gövde = kwargs, ör. {\"actor\":\"owner\"})",
@@ -86,6 +88,8 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.events(mio, limit)
             if parts == ["hardware"]:
                 return 200, appservice.hardware_report(mio)
+            if parts == ["inference", "analyze"]:
+                return 200, appservice.inference_analyze(mio)
             if parts == ["connectors"]:
                 return 200, appservice.connectors_overview(mio)
             if parts == ["capabilities"]:
@@ -103,6 +107,13 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                     return 400, {"error": 'gövde bir JSON nesnesi olmalı, ör: {"actor":"owner","name":"S"}'}
                 result = appservice.call(mio, parts[1], parts[2], body)
                 return 200, {"result": result}
+            # POST /inference/ensure-ready  gövde = {approve:[...], auto_pull, run_test}
+            if parts == ["inference", "ensure-ready"]:
+                b = body if isinstance(body, dict) else {}
+                rep = appservice.inference_ensure_ready(
+                    mio, approve=b.get("approve", []), auto_pull=b.get("auto_pull", True),
+                    run_test=b.get("run_test", True))
+                return (200 if rep.get("ready") else 202), rep    # 202: kabul edildi, hazır değil/onay bekliyor
             # POST /capabilities/{capability}  gövde = request ; ?actor=&approved=true
             if len(parts) == 2 and parts[0] == "capabilities":
                 actor = query.get("actor", ["owner"])[0]
