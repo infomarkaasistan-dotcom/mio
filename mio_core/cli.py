@@ -47,6 +47,12 @@ _HELP_SECTIONS = [
     ("Business", [("business list", "izole işletme çalışma alanları"),
                   ("business create <ad> [tip]", "yeni işletme (personal/marketing_agency/ecommerce/saas...)"),
                   ("business info <id>", "işletme detayı (departman/hedef)")]),
+    ("CEO & Agents", [("ceo report", "konsolide yönetim panosu (Dashboard)"),
+                      ("ceo direct <hedef> [--days N] [--steps json]", "stratejik niyet → Executive hedefi + plan"),
+                      ("ceo delegate <plan_id> [approve]", "plan adımlarını agent'lara devret (execute)"),
+                      ("agent list / stats", "agent kadrosu / istatistik"),
+                      ("agent register <ad> [--role --caps --load]", "yeni agent kaydet"),
+                      ("agent tasks [status] / approve <id>", "görevler / yüksek-risk onay")]),
     ("Workflow", [("workflow list", "iş akışları (DAG)"),
                   ("workflow create <name> <json>", "görev grafı oluştur (DAG doğrulanır)"),
                   ("workflow plan <id>", "topolojik yürütme planı"),
@@ -80,7 +86,7 @@ KNOWN_COMMANDS = frozenset({
     "connectors", "capabilities", "metrics", "prometheus", "readiness", "health", "events", "contract",
     "stats", "call", "execute", "inference", "mcp", "present", "presentation", "chat", "conversation",
     "conv", "workflow", "wf", "connect", "config", "workspace", "server", "serve", "http", "shell",
-    "business", "işletme", "isletme", "quit", "exit", "q",
+    "business", "işletme", "isletme", "ceo", "agent", "agents", "quit", "exit", "q",
 })
 
 
@@ -169,6 +175,10 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
             return _do_workflow(mio, rest)
         if name in ("business", "işletme", "isletme"):
             return _do_business(mio, rest)
+        if name == "ceo":
+            return _do_ceo(mio, rest)
+        if name in ("agent", "agents"):
+            return _do_agent(mio, rest)
         if name == "connect":
             return 0, "raw", appservice.connect_env(mio)
         if name == "config":
@@ -316,6 +326,61 @@ def _do_business(mio, rest: list) -> tuple[int, str, Any]:
     if sub == "stats":
         return 0, "raw", appservice.business_stats(mio)
     return 2, "text", "kullanım: business [list | create <ad> [tip] | info <id> | delete <id> [purge] | stats]"
+
+
+def _do_ceo(mio, rest: list) -> tuple[int, str, Any]:
+    """CEO Experience: intent→plan→delegate→report — appservice'e delege (iş mantığı orkestratörde/domainlerde)."""
+    sub = rest[0] if rest else "report"
+    args = rest[1:]
+    if sub in ("report", "dashboard", "panel"):
+        return 0, "raw", appservice.ceo_report(mio)
+    if sub in ("direct", "goal", "hedef"):
+        if not args:
+            return 2, "text", 'kullanım: ceo direct <hedef metni> [--days N] [--steps json]'
+        days = _pop_flag(rest, "--days")
+        steps_raw = _pop_flag(rest, "--steps")
+        steps = None
+        if steps_raw:
+            try:
+                steps = json.loads(steps_raw)
+            except json.JSONDecodeError as exc:
+                return 2, "text", f"geçersiz --steps JSON: {exc}"
+        goal = " ".join(a for a in rest[1:] if not a.startswith("--"))
+        return 0, "raw", appservice.ceo_direct(mio, goal, horizon_days=int(days or 30), steps=steps)
+    if sub in ("delegate", "execute"):
+        if not args:
+            return 2, "text", "kullanım: ceo delegate <plan_id> [approve]"
+        approve = len(args) > 1 and args[1].lower() in ("approve", "yes", "1", "true")
+        return 0, "raw", appservice.ceo_delegate(mio, args[0], approve=approve)
+    return 2, "text", "kullanım: ceo [report | direct <hedef> [--days N] [--steps json] | delegate <plan_id> [approve]]"
+
+
+def _do_agent(mio, rest: list) -> tuple[int, str, Any]:
+    """Agent yönetimi (mevcut multi_agent'a delege) — kayıt/liste/görev/onay/istatistik."""
+    sub = rest[0] if rest else "list"
+    args = rest[1:]
+    if sub in ("list", "ls"):
+        return 0, "raw", appservice.agent_list(mio)
+    if sub in ("register", "add"):
+        if not args:
+            return 2, "text", 'kullanım: agent register <ad> [--role R] [--caps c1,c2] [--load N]'
+        role = _pop_flag(rest, "--role") or "worker"
+        caps_raw = _pop_flag(rest, "--caps")
+        load = _pop_flag(rest, "--load")
+        caps = [c.strip() for c in caps_raw.split(",") if c.strip()] if caps_raw else []
+        name = next((a for a in rest[1:] if not a.startswith("--")), "")
+        return 0, "raw", appservice.agent_register(mio, name, role=role, capabilities=caps,
+                                                    max_load=int(load or 3))
+    if sub in ("tasks", "task"):
+        status = args[0] if args else None
+        return 0, "raw", appservice.agent_tasks(mio, status=status)
+    if sub == "approve":
+        if not args:
+            return 2, "text", "kullanım: agent approve <task_id>"
+        return 0, "raw", appservice.agent_task_approve(mio, args[0])
+    if sub == "stats":
+        return 0, "raw", appservice.agent_stats(mio)
+    return 2, "text", "kullanım: agent [list | register <ad> [--role --caps --load] | tasks [status] | approve <id> | stats]"
 
 
 def _do_workflow(mio, rest: list) -> tuple[int, str, Any]:

@@ -30,6 +30,7 @@ def _normalize(text: str) -> str:
 # 'mesaj' → 'mesajlari', 'is akis' → 'is akislari'). Sıra ÖNEMLİ: özelden genele (ilk eşleşen kazanır).
 _INTENT_PATTERNS = [
     ("greeting", r"\b(merhaba|selam|gunaydin|hey|hello|iyi aksam)"),
+    ("ceo", r"\b(pano|yonetim panosu|dashboard|genel bakis|ceo|devret|delege|butun resmi|butun resim)"),
     ("business", r"\b(isletme|is yeri|sirket kur|yeni sirket|workspace|departman kur|business)"),
     ("diagnose", r"\b(saglik|saglig|tani|teshis|kontrol et|diagnose|health|sorun var)"),
     ("hardware", r"\b(donanim|gpu|cuda|vram|hardware|islemci|ekran kart)"),
@@ -151,6 +152,14 @@ class ConversationalOrchestrator:
             return self._resp(intent, f"Yapılandırma yüklendi (.env {'var' if cfg['env_file_loaded'] else 'yok'}). "
                               f"LLM: {'açık' if cfg.get('llm_enabled') else 'kapalı'}, "
                               f"Ollama: {'erişilebilir' if cfg.get('ollama_reachable') else 'kapalı'}.", cfg)
+        if intent == "ceo":
+            rep = appservice.ceo_report(mio)
+            g, a = rep["active_goals"], rep["agents"]["total"]
+            t = rep["tasks"]["total"]
+            return self._resp(intent, f"Yönetim panosu — güven {rep['system_confidence']} "
+                              f"({rep['executive_score']}/100). {rep['businesses']['total']} işletme, {g} aktif "
+                              f"hedef, {rep['plans']['total']} plan, {a} agent, {t} görev. Yeni hedef için "
+                              "'ceo direct <hedef>', devretmek için 'ceo delegate <plan_id>'.", rep)
         if intent == "business":
             bl = appservice.business_list(mio)
             if bl:

@@ -41,3 +41,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Yerel medya (repoya girmez)
+*.mp4
+*.mov
+*.mkv

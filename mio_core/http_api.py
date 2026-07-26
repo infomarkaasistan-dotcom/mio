@@ -119,6 +119,14 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.business_list(mio)
             if len(parts) == 2 and parts[0] == "business":
                 return 200, appservice.business_get(mio, parts[1])
+            if parts == ["ceo", "report"] or parts == ["dashboard"]:
+                return 200, appservice.ceo_report(mio)
+            if parts == ["agents"]:
+                return 200, appservice.agent_list(mio)
+            if parts == ["agents", "tasks"]:
+                return 200, appservice.agent_tasks(mio, status=(query.get("status", [None])[0]))
+            if parts == ["agents", "stats"]:
+                return 200, appservice.agent_stats(mio)
             if parts == ["workflow"]:
                 return 200, appservice.workflow_list(mio)
             if len(parts) == 2 and parts[0] == "workflow":
@@ -169,6 +177,25 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.business_create(mio, b.get("name", ""),
                                                        business_type=b.get("business_type", "personal"),
                                                        objectives=b.get("objectives"))
+            # POST /ceo/direct  gövde={goal, horizon_days, steps} — sahip niyeti → Executive hedefi + Planning planı
+            if parts == ["ceo", "direct"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.ceo_direct(mio, b.get("goal", ""),
+                                                  horizon_days=int(b.get("horizon_days", 30)),
+                                                  steps=b.get("steps"))
+            # POST /ceo/{plan_id}/delegate  ?approve=true — Planning adımlarını Multi-Agent görevlerine devret
+            if len(parts) == 3 and parts[0] == "ceo" and parts[2] == "delegate":
+                approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
+                return 200, appservice.ceo_delegate(mio, parts[1], approve=approve)
+            # POST /agents  gövde={name, role, capabilities, max_load} — agent kaydı (mevcut multi_agent)
+            if parts == ["agents"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.agent_register(mio, b.get("name", ""), role=b.get("role", "worker"),
+                                                      capabilities=b.get("capabilities"),
+                                                      max_load=int(b.get("max_load", 3)))
+            # POST /agents/{task_id}/approve — yüksek-risk görev onayı (Madde 24)
+            if len(parts) == 3 and parts[0] == "agents" and parts[2] == "approve":
+                return 200, appservice.agent_task_approve(mio, parts[1])
             # POST /converse  gövde={text} — doğal dil → Executive orkestratörü (aynı DTO; Dashboard da kullanır)
             if parts == ["converse"]:
                 b = body if isinstance(body, dict) else {}

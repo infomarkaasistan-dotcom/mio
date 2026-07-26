@@ -236,6 +236,7 @@ class MIORuntime:
         self._http_handle = None             # gömülü HTTP sunucusu yaşam-döngüsü (lazy; CLI'dan yönetilir)
         self._conversational = None          # doğal dil orkestratörü (lazy; konuşma bağlamı tutar)
         self._business = None                # İşletme çalışma alanı yöneticisi (lazy; platform servisi)
+        self._ceo = None                     # CEO Experience orkestratörü (lazy; intent→plan→delegate→report)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -352,6 +353,16 @@ class MIORuntime:
                 or "."
             self._business = BusinessWorkspaceManager(home)
         return self._business
+
+    @property
+    def ceo(self):
+        """CEO Experience orkestratörü (intent→plan→delegate→execute→report). Lazy; iş mantığı YOK.
+
+        Sahibin stratejik niyetini mevcut Executive/Planning/Multi-Agent zincirine bağlar (yeni sistem yaratmaz)."""
+        if self._ceo is None:
+            from mio_core.ceo import CEOExperience
+            self._ceo = CEOExperience(self)
+        return self._ceo
 
     def readiness(self) -> dict:
         """Operational Readiness self-check (DETERMİNİSTİK; dış adapter gerektirmez).

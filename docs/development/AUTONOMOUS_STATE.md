@@ -149,9 +149,20 @@
     stats; ad çakışması (case-insensitive) + geçersiz tip reddi. `mio.business` lazy (home = config MIO_HOME veya
     workspace parent). appservice business_list/create/get/delete/stats; CLI `business`; conversational "business"
     intent; HTTP GET/POST /business (aynı DTO). `tests/test_business_workspace.py` (6). Tam süit **987+2skip**.
-    SIRADAKİ (Unified Product Experience kalan): Onboarding (ilk açılış 5dk), CEO experience (intent→plan→delegate→
-    execute→report), Agent management (mevcut multi_agent), Dashboard DTO. Ayrıca yol haritası Y1 Learning
-    trajectory, Y2 Reasoning verifier.
+  - **✅ CEO Experience + Agent yönetimi + Dashboard (Unified Product Experience #2/#3/#5) TAMAM** —
+    `mio_core/ceo.py` CEOExperience: sahibin stratejik niyetini mevcut zincire bağlar **intent→plan→delegate→
+    execute→report**. **YENİ plan/görev/hedef/registry YOK** — Executive(set_goal)+Planning(draft/sequence/assess)+
+    Multi-Agent(submit_task) orkestre edilir. `direct` (Executive hedefi+Planning planı; adım kaynağı owner veya
+    Advisor-advisory, karar değil), `delegate` (adım→agent görevi; agent/executor yoksa DÜRÜST no_agent/no_connector;
+    yüksek-risk onay Madde 24), `report` (konsolide **Dashboard DTO**: Executive+Planning+Multi-Agent+Business+tanı).
+    `mio.ceo` lazy. appservice ceo_direct/delegate/report + agent_list/register/tasks/task_approve/stats. CLI `ceo`
+    (report/direct/delegate) + `agent` (list/register/tasks/approve/stats); conversational "ceo/pano" intent; HTTP
+    GET /ceo/report,/dashboard,/agents + POST /ceo/direct,/ceo/{id}/delegate,/agents. `tests/test_ceo_experience.py`
+    (9). Tam süit **996+2skip**.
+  - **🎉 Unified Product Experience çekirdeği: Conversational CLI + Business Workspace + CEO Experience + Dashboard.**
+    SIRADAKİ kalan: Onboarding (ilk açılış 5dk operasyonel işletme); "Sahne Modu" (Presentation+Conversation+Media
+    gerçek ses/görsel sağlayıcıya bağlı canlı demo — kullanıcının Robin/BRAINSTORM demosuna benzer hedef); yol
+    haritası Y1 Learning trajectory, Y2 Reasoning verifier.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

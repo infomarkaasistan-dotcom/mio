@@ -476,6 +476,46 @@ def inference_ensure_ready(mio, *, approve=frozenset(), auto_pull: bool = True,
     return mio.local_inference.ensure_ready(approve=frozenset(approve), auto_pull=auto_pull, run_test=run_test)
 
 
+# ---- CEO Experience yüzeyi (intent→plan→delegate→execute→report) — CLI/HTTP/conversational ortak ----
+def ceo_direct(mio, goal_text: str, *, horizon_days: int = 30, steps: Optional[list] = None,
+               actor: str = "owner") -> dict[str, Any]:
+    """Sahibin stratejik niyetini Executive hedefi + Planning planına dönüştürür (yürütmez)."""
+    return mio.ceo.direct(goal_text, horizon_days=int(horizon_days), steps=steps, actor=actor)
+
+
+def ceo_delegate(mio, plan_id: str, *, actor: str = "owner", approve: bool = False) -> dict[str, Any]:
+    """Planning adımlarını Multi-Agent görevlerine devreder (execute). Yüksek-risk görev onay ister (Madde 24)."""
+    return mio.ceo.delegate(plan_id, actor=actor, approve=approve)
+
+
+def ceo_report(mio, *, actor: str = "owner") -> dict[str, Any]:
+    """Konsolide yönetim panosu (Dashboard DTO): Executive + Planning + Multi-Agent + Business + tanı."""
+    return mio.ceo.report(actor=actor)
+
+
+# ---- Agent yönetimi yüzeyi (mevcut multi_agent'a delege — yeni sistem YOK) ----
+def agent_list(mio, *, actor: str = "owner") -> list[dict[str, Any]]:
+    return mio.multi_agent.list_agents(actor)
+
+
+def agent_register(mio, name: str, *, role: str = "worker", capabilities: Optional[list] = None,
+                   max_load: int = 3, actor: str = "owner") -> dict[str, Any]:
+    return mio.multi_agent.register_agent(actor, name, role=role,
+                                          capabilities=list(capabilities or []), max_load=int(max_load))
+
+
+def agent_tasks(mio, *, actor: str = "owner", status: Optional[str] = None) -> list[dict[str, Any]]:
+    return mio.multi_agent.list_tasks(actor, status=status)
+
+
+def agent_task_approve(mio, task_id: str, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.multi_agent.approve_task(actor, task_id)
+
+
+def agent_stats(mio, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.multi_agent.stats()
+
+
 __all__ = [
     "NotFound", "BadRequest", "PUBLIC_DOMAINS",
     "list_domains", "domain_contract", "domain_stats", "metrics", "readiness", "health", "events", "call",
@@ -492,4 +532,6 @@ __all__ = [
     "server_start", "server_stop", "server_status", "workspace_info",
     "workflow_create", "workflow_list", "workflow_get", "workflow_plan", "workflow_run",
     "converse", "business_list", "business_create", "business_get", "business_delete", "business_stats",
+    "ceo_direct", "ceo_delegate", "ceo_report",
+    "agent_list", "agent_register", "agent_tasks", "agent_task_approve", "agent_stats",
 ]
