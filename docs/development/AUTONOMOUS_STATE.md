@@ -125,10 +125,18 @@
   - **✅ CLI kalan kalemler (kısmi) TAMAM** — HTTP server lifecycle CLI'dan (`server start/stop/status`, arka-plan
     thread, idempotent, close'da graceful stop; `mio.http_server` lazy) + `workspace` teşhisi. appservice
     server_start/stop/status + workspace_info. `tests/test_server_workspace.py` (4). Tam süit **941+2skip**.
-  - **🎉 45 domain + Presentation/Conversation + Media adapter + server/workspace CLI.** SIRADAKİ (kalan): CLI
-    auto-complete + persistent history (readline), live `watch` event stream, tokens/sec ölçümü; yol haritası
-    K1 Workflow Domain, Y1 Learning trajectory, Y2 Reasoning verifier (büyük mimari eklemeler); Advisor↔model
-    otomatik bağlama; API ağ-auth (token/mTLS).
+  - **✅ Workflow Domain TAMAM** (yol haritası K1 — en kritik eksik). `mio_core/domains/workflow/` — görev grafı
+    (DAG) + checkpoint/resume + human-approval + rollback. Deterministik: döngü tespiti (DFS), topolojik sıra
+    (Kahn), ready hesabı, checkpoint (SQLite), rollback (descendant). **Domain ConnectorManager çağırmaz**; görev
+    CapabilityIntent taşır. Executive köprüsü `appservice.workflow_run` (DAG'ı yürütür, checkpoint/resume, human-
+    approval Madde 24). `mio.workflow`. CLI `workflow`, HTTP /workflow. `tests/test_workflow_domain.py` (8). Tam
+    süit **954+2skip** (46 domain, domain_count 27).
+  - **🎉 46 domain + Presentation/Conversation/Workflow + Media adapter + server/workspace CLI + 2.nesil analiz
+    raporu.** SIRADAKİ (yeni büyük direktif — Unified Product Experience): Conversational CLI (Türkçe intent→
+    Executive→domain pipeline, conversational memory), Business Workspace (izole business state), Onboarding,
+    CEO experience, Agent management, Dashboard. KURAL: mevcut sistemleri ENTEGRE et (no second workflow/task/
+    memory/registry), ürün deneyimi olarak sun, LLM danışman, Executive karar. Ayrıca: Y1 Learning trajectory,
+    Y2 Reasoning verifier; live watch; API ağ-auth.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

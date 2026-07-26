@@ -115,6 +115,12 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.presentation_list(mio)
             if len(parts) == 3 and parts[0] == "presentation" and parts[2] == "plan":
                 return 200, appservice.presentation_plan(mio, parts[1])
+            if parts == ["workflow"]:
+                return 200, appservice.workflow_list(mio)
+            if len(parts) == 2 and parts[0] == "workflow":
+                return 200, appservice.workflow_get(mio, parts[1])
+            if len(parts) == 3 and parts[0] == "workflow" and parts[2] == "plan":
+                return 200, appservice.workflow_plan(mio, parts[1])
             if parts == ["conversation", "queue"]:
                 return 200, appservice.conversation_queue(mio)
             if parts == ["conversation", "summary"]:
@@ -149,6 +155,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             if len(parts) == 3 and parts[0] == "presentation" and parts[2] == "deliver":
                 approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
                 return 200, appservice.presentation_deliver(mio, parts[1], approve=approve)
+            # POST /workflow/{id}/run  Executive köprüsü (DAG'ı yürütür) ; ?approve=true
+            if len(parts) == 3 and parts[0] == "workflow" and parts[2] == "run":
+                approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
+                return 200, appservice.workflow_run(mio, parts[1], approve=approve)
             # POST /conversation/receive  gövde={user_handle, text, platform_ref}
             if parts == ["conversation", "receive"]:
                 b = body if isinstance(body, dict) else {}

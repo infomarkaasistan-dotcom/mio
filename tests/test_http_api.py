@@ -26,7 +26,7 @@ def test_get_routes(mio):
     assert route_request(mio, "GET", "/health", {}, None)[0] == 200
     st, r = route_request(mio, "GET", "/readiness", {}, None)
     assert st == 200 and r["ready"] is True
-    assert route_request(mio, "GET", "/metrics", {}, None)[1]["domain_count"] == 26
+    assert route_request(mio, "GET", "/metrics", {}, None)[1]["domain_count"] == 27
     st, doc = route_request(mio, "GET", "/domains", {}, None)
     assert st == 200 and len(doc) == len(_READINESS_DOMAINS)
     assert route_request(mio, "GET", "/domains/iot/contract", {}, None)[1]["domain"] == "iot"
@@ -103,7 +103,7 @@ def _post(base, path, body):
 
 def test_live_http_get_and_post(server):
     assert _get(server, "/readiness")[1]["ready"] is True
-    assert len(_get(server, "/domains")[1]) == 26
+    assert len(_get(server, "/domains")[1]) == 27
     st, out = _post(server, "/domains/iot/register_thing",
                     {"actor": "owner", "name": "Saha", "kind": "sensor"})
     assert st == 200 and out["result"]["name"] == "Saha"

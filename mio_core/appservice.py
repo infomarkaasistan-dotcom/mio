@@ -152,6 +152,60 @@ def server_status(mio) -> dict[str, Any]:
     return mio.http_server.status()
 
 
+def workflow_create(mio, name: str, tasks: list, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.workflow.create_workflow(actor, name, tasks)
+
+
+def workflow_list(mio, *, actor: str = "owner", status: Optional[str] = None) -> list[dict[str, Any]]:
+    return mio.workflow.list_workflows(actor, status=status)
+
+
+def workflow_get(mio, workflow_id: str, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.workflow.get_workflow(actor, workflow_id)
+
+
+def workflow_plan(mio, workflow_id: str, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.workflow.plan(actor, workflow_id)
+
+
+def workflow_run(mio, workflow_id: str, *, actor: str = "owner", approve: bool = False,
+                 max_steps: int = 100) -> dict[str, Any]:
+    """EXECUTIVE KÖPRÜSÜ: DAG'ı yürütür. Ready görevleri ConnectorManager ile çalıştırır, checkpoint günceller.
+
+    Human-approval görevi (blocked_approval) `approve=True` ile onaylanır (Madde 24). Görev capability'si yoksa
+    (salt-mantık görevi) doğrudan tamamlanır. connector_unavailable → görev fail (workflow durur, resume mümkün)."""
+    mio.workflow.start(actor, workflow_id)
+    executed = []
+    for _ in range(int(max_steps)):
+        wf = mio.workflow.get_workflow(actor, workflow_id)
+        if wf["status"] in ("completed", "failed"):
+            break
+        # onay bekleyen görevleri (izin verildiyse) onayla
+        if approve:
+            for t in wf["tasks"]:
+                if t["status"] == "blocked_approval":
+                    mio.workflow.approve_task(actor, workflow_id, t["id"])
+        ready = mio.workflow.ready_tasks(actor, workflow_id)
+        if not ready:
+            break                                     # ready yok (onay bekliyor ya da bitti)
+        for t in ready:
+            if t.get("capability"):
+                outcome = mio.connectors.execute(t["capability"], t.get("request", {}), actor=actor,
+                                                 user_approved=approve)
+                if outcome.get("status") == "executed":
+                    mio.workflow.complete_task(actor, workflow_id, t["id"], result=outcome.get("result", {}))
+                    executed.append({"task": t["name"], "status": "executed"})
+                else:
+                    mio.workflow.fail_task(actor, workflow_id, t["id"], error=outcome.get("status", "failed"))
+                    executed.append({"task": t["name"], "status": outcome.get("status")})
+            else:
+                mio.workflow.complete_task(actor, workflow_id, t["id"])   # salt-mantık görevi
+                executed.append({"task": t["name"], "status": "completed"})
+    final = mio.workflow.get_workflow(actor, workflow_id)
+    return {"workflow_id": workflow_id, "status": final["status"], "progress": final["progress"],
+            "executed": executed}
+
+
 def workspace_info(mio) -> dict[str, Any]:
     """Workspace teşhisi: yol + boyut + domain veritabanı sayısı + disk (deterministik, salt-okunur)."""
     import os
@@ -402,4 +456,5 @@ __all__ = [
     "conversation_receive", "conversation_queue", "conversation_summary", "conversation_reply",
     "conversation_moderate",
     "server_start", "server_stop", "server_status", "workspace_info",
+    "workflow_create", "workflow_list", "workflow_get", "workflow_plan", "workflow_run",
 ]

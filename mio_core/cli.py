@@ -42,6 +42,10 @@ _HELP_SECTIONS = [
                       ("present outline <t> <json>", "outline'dan senaryo üret"),
                       ("present plan <id>", "sunum niyet planı (yürütme yok)"),
                       ("present deliver <id> [approve]", "Executive: niyetleri ConnectorManager ile yürüt")]),
+    ("Workflow", [("workflow list", "iş akışları (DAG)"),
+                  ("workflow create <name> <json>", "görev grafı oluştur (DAG doğrulanır)"),
+                  ("workflow plan <id>", "topolojik yürütme planı"),
+                  ("workflow run <id> [approve]", "Executive: DAG'ı yürüt (checkpoint/human-approval)")]),
     ("Conversation", [("chat queue", "cevap bekleyen mesajlar (öncelik sırası)"),
                       ("chat summary", "konuşma özeti + moderasyon"),
                       ("chat receive <user> <text>", "mesaj al + sınıflandır + moderasyon tespiti"),
@@ -144,6 +148,8 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
             return _do_present(mio, rest)
         if name in ("chat", "conversation", "conv"):
             return _do_chat(mio, rest)
+        if name in ("workflow", "wf"):
+            return _do_workflow(mio, rest)
         if name == "connect":
             return 0, "raw", appservice.connect_env(mio)
         if name == "config":
@@ -265,6 +271,38 @@ def _do_present(mio, rest: list) -> tuple[int, str, Any]:
         items = parsed if isinstance(parsed, list) else (parsed.get("outline", []) if isinstance(parsed, dict) else [])
         return 0, "raw", appservice.presentation_outline(mio, args[0], items)
     return 2, "text", "kullanım: present [list | plan <id> | deliver <id> [approve] | outline <title> <json>]"
+
+
+def _do_workflow(mio, rest: list) -> tuple[int, str, Any]:
+    """Workflow (DAG) alt-komutları — appservice'e delege. run = Executive köprüsü (DAG'ı yürütür)."""
+    sub = rest[0] if rest else "list"
+    args = rest[1:]
+    if sub in ("list", "ls"):
+        return 0, "raw", appservice.workflow_list(mio)
+    if sub in ("get", "show"):
+        if not args:
+            return 2, "text", "kullanım: workflow get <id>"
+        return 0, "raw", appservice.workflow_get(mio, args[0])
+    if sub == "plan":
+        if not args:
+            return 2, "text", "kullanım: workflow plan <id>"
+        return 0, "raw", appservice.workflow_plan(mio, args[0])
+    if sub == "create":
+        if len(args) < 2:
+            return 2, "text", 'kullanım: workflow create <name> <json-tasks>  ör: workflow create X [{"name":"a"},{"name":"b","depends_on":["a"]}]'
+        try:
+            tasks = json.loads(" ".join(args[1:]))
+        except json.JSONDecodeError as exc:
+            return 2, "text", f"geçersiz JSON: {exc}"
+        if not isinstance(tasks, list):
+            return 2, "text", "tasks bir JSON listesi olmalı"
+        return 0, "raw", appservice.workflow_create(mio, args[0], tasks)
+    if sub == "run":
+        if not args:
+            return 2, "text", "kullanım: workflow run <id> [approve]"
+        approve = len(args) > 1 and args[1].lower() in ("approve", "yes", "1", "true")
+        return 0, "raw", appservice.workflow_run(mio, args[0], approve=approve)
+    return 2, "text", "kullanım: workflow [list | get <id> | plan <id> | create <name> <json> | run <id> [approve]]"
 
 
 def _do_chat(mio, rest: list) -> tuple[int, str, Any]:

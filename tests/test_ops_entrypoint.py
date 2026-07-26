@@ -24,7 +24,7 @@ def test_health_probe(tmp_path):
 
 def test_metrics_probe_aggregates(tmp_path):
     code, payload = run_probe("metrics", workspace=str(tmp_path / "mio"))
-    assert code == 0 and payload["domain_count"] == 26
+    assert code == 0 and payload["domain_count"] == 27
     assert payload["domains"]["iot"]["contract_version"] == "1.0.0"
     assert payload["closed"] is False
 
@@ -49,4 +49,4 @@ def test_main_readiness_prints_json_and_returns_zero(tmp_path, capsys):
 def test_main_metrics_returns_zero(tmp_path, capsys):
     rc = main(["metrics", "--workspace", str(tmp_path / "mio")])
     doc = json.loads(capsys.readouterr().out.strip())
-    assert rc == 0 and doc["domain_count"] == 26
+    assert rc == 0 and doc["domain_count"] == 27

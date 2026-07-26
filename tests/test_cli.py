@@ -37,7 +37,7 @@ def test_contract_and_stats(mio):
 
 
 def test_metrics_readiness_health(mio):
-    assert json.loads(run_command(mio, ["metrics"])[1])["domain_count"] == 26
+    assert json.loads(run_command(mio, ["metrics"])[1])["domain_count"] == 27
     rc, out = run_command(mio, ["readiness"])
     assert rc == 0 and json.loads(out)["ready"] is True
     assert run_command(mio, ["health"])[0] == 0
