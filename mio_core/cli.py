@@ -12,6 +12,7 @@ Komutlar:
   readiness | health              → operasyonel hazırlık / sağlık (readiness ready değilse çıkış kodu 1)
   events [N]                      → son N event bus olayı (varsayılan 20)
   call <domain> <op> [json]       → bir domain operasyonunu reflektif çağırır (json = {"actor":"owner",...})
+  serve [--host H --port P]       → HTTP API adapter'ını başlatır (stdlib http.server; aynı appservice)
   help                            → bu yardım
   quit | exit                     → çık (etkileşimli mod)"""
 
@@ -22,7 +23,8 @@ import shlex
 import sys
 from typing import Any, Optional
 
-from mio_core.runtime import _READINESS_DOMAINS
+from mio_core import appservice
+from mio_core.appservice import BadRequest, NotFound
 
 _BANNER = ("MIO Executive OS — etkileşimli kabuk (LLM-bağımsız, deterministik).\n"
            "'help' ile komutlar, 'domains' ile domain listesi, 'quit' ile çıkış.\n")
@@ -34,24 +36,10 @@ def _fmt(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=2, default=str, sort_keys=True)
 
 
-def _domains_overview(mio) -> list[dict[str, Any]]:
-    out = []
-    for name in _READINESS_DOMAINS:
-        obj = getattr(mio, name, None)
-        if obj is None or not hasattr(obj, "contract"):
-            continue
-        try:
-            c = obj.contract()
-            out.append({"domain": name, "version": c.get("version"),
-                        "operations": len(c.get("operations", [])),
-                        "description": (c.get("description", "") or "")[:80]})
-        except Exception as exc:  # noqa: BLE001
-            out.append({"domain": name, "error": str(exc)[:80]})
-    return out
-
-
 def run_command(mio, argv: list) -> tuple[int, str]:
-    """Tek komutu canlı runtime üzerinde çalıştırır. (exit_code, çıktı) döner. boot/close ÇAĞIRMAZ."""
+    """Tek komutu canlı runtime üzerinde çalıştırır. (exit_code, çıktı) döner. boot/close ÇAĞIRMAZ.
+
+    İş mantığı YOK — appservice (paylaşılan sözleşme yüzeyi) üzerinden delege eder; yalnız argv-parse + biçimleme."""
     if not argv:
         return 0, ""
     name, rest = argv[0], argv[1:]
@@ -59,47 +47,37 @@ def run_command(mio, argv: list) -> tuple[int, str]:
         if name in ("help", "?", "h"):
             return 0, _HELP
         if name == "domains":
-            return 0, _fmt(_domains_overview(mio))
+            return 0, _fmt(appservice.list_domains(mio))
         if name == "metrics":
-            return 0, _fmt(mio.metrics())
+            return 0, _fmt(appservice.metrics(mio))
         if name == "readiness":
-            r = mio.readiness()
+            r = appservice.readiness(mio)
             return (0 if r.get("ready") else 1), _fmt(r)
         if name == "health":
-            return 0, _fmt(mio.health())
+            return 0, _fmt(appservice.health(mio))
         if name == "events":
             limit = int(rest[0]) if rest and rest[0].isdigit() else 20
-            evts = [{"type": e.get("type"), "data": e.get("data")} for e in mio.bus.history(limit=limit)]
-            return 0, _fmt(evts)
-        if name in ("contract", "stats"):
+            return 0, _fmt(appservice.events(mio, limit))
+        if name == "contract":
             if not rest:
-                return 2, f"kullanım: {name} <domain>"
-            obj = getattr(mio, rest[0], None)
-            if obj is None:
-                return 2, f"domain bulunamadı: {rest[0]}"
-            meth = getattr(obj, name, None)
-            if not callable(meth):
-                return 2, f"{rest[0]}.{name}() yok"
-            return 0, _fmt(meth())
+                return 2, "kullanım: contract <domain>"
+            return 0, _fmt(appservice.domain_contract(mio, rest[0]))
+        if name == "stats":
+            if not rest:
+                return 2, "kullanım: stats <domain>"
+            return 0, _fmt(appservice.domain_stats(mio, rest[0]))
         if name == "call":
             return _do_call(mio, rest)
         return 2, f"bilinmeyen komut: {name}\n\n{_HELP}"
-    except Exception as exc:  # noqa: BLE001 — CLI hatası çıktıya döner, süreci çökertmez
+    except (NotFound, BadRequest) as exc:      # istek/kullanım hatası → 2 (client error)
+        return 2, f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001 — domain istisnası (authz/validation) → 1; süreci çökertmez
         return 1, f"HATA: {type(exc).__name__}: {exc}"
 
 
 def _do_call(mio, rest: list) -> tuple[int, str]:
     if len(rest) < 2:
         return 2, 'kullanım: call <domain> <operasyon> [json]   ör: call iot register_thing {"actor":"owner","name":"S"}'
-    dname, opname = rest[0], rest[1]
-    obj = getattr(mio, dname, None)
-    if obj is None:
-        return 2, f"domain bulunamadı: {dname}"
-    if opname.startswith("_"):
-        return 2, "özel (underscore) metod çağrılamaz"
-    fn = getattr(obj, opname, None)
-    if not callable(fn):
-        return 2, f"operasyon bulunamadı: {dname}.{opname}"
     raw = " ".join(rest[2:]).strip()
     kwargs: dict[str, Any] = {}
     if raw:
@@ -110,7 +88,7 @@ def _do_call(mio, rest: list) -> tuple[int, str]:
         if not isinstance(parsed, dict):
             return 2, 'JSON bir nesne olmalı, ör: {"actor":"owner","name":"S"}'
         kwargs = parsed
-    result = fn(**kwargs)
+    result = appservice.call(mio, rest[0], rest[1], kwargs)   # iş mantığı domainde; burada delege
     return 0, _fmt(result)
 
 
@@ -132,14 +110,22 @@ def interactive(mio) -> int:
             print(out)
 
 
-def main(argv: Optional[list] = None) -> int:
-    argv = list(sys.argv[1:] if argv is None else argv)
-    workspace = ".mio"
-    if "--workspace" in argv:
-        i = argv.index("--workspace")
+def _pop_flag(argv: list, flag: str) -> Optional[str]:
+    if flag in argv:
+        i = argv.index(flag)
         if i + 1 < len(argv):
-            workspace = argv[i + 1]
+            val = argv[i + 1]
             del argv[i:i + 2]
+            return val
+    return None
+
+
+def main(argv: Optional[list] = None) -> int:
+    import os
+    argv = list(sys.argv[1:] if argv is None else argv)
+    workspace = _pop_flag(argv, "--workspace") or os.environ.get("MIO_WORKSPACE", ".mio")
+    host = _pop_flag(argv, "--host") or os.environ.get("MIO_HTTP_HOST", "127.0.0.1")
+    port = _pop_flag(argv, "--port") or os.environ.get("MIO_HTTP_PORT", "8080")
     is_interactive = (not argv) or argv[0] == "shell"
 
     from mio_core.runtime import boot
@@ -147,6 +133,10 @@ def main(argv: Optional[list] = None) -> int:
     try:
         if is_interactive:
             return interactive(mio)
+        if argv[0] in ("serve", "http"):          # HTTP adapter (stdlib http.server) — bloklar
+            from mio_core.http_api import serve
+            serve(mio, host=host, port=int(port))
+            return 0
         code, out = run_command(mio, argv)
         if out:
             print(out)

@@ -16,10 +16,19 @@
     domain operasyonunu terminalden çağırır; kwargs; domain authz yürürlükte; özel metod yasak). `__main__`
     yönlendirme: readiness/health/metrics→ops probe (Docker HEALTHCHECK backward-compat), diğer→CLI. Deterministik/
     LLM-bağımsız. `docs/development/CLI.md`, `tests/test_cli.py` (10). Doğal dil = LLM danışman bağlanınca (connector).
-  - **SIRADAKİ: #2 HTTP/API katmanı** — domainleri dışa açan REST/servis (deterministik, authz'li; muhtemelen
-    stdlib `http.server` ile bağımlılıksız ya da kullanıcı onayıyla hafif framework). Sonra #3 Connector (e-posta/
-    takvim/dosya/mesajlaşma — gerçek dış entegrasyon; resilience'a da anlam kazandırır), #4 Monitoring stack
-    (Prometheus/OpenTelemetry; mevcut mio.metrics()/StructuredFormatter/Tracer'ı gerçek gözlem sistemine bağla).
+  - **✅ #2 HTTP/API katmanı TAMAM** — stdlib `http.server` adapter (`mio_core/http_api.py`), **framework YOK**.
+    **Paylaşılan sözleşme yüzeyi** `mio_core/appservice.py` kuruldu: CLI ve HTTP AYNI appservice'i kullanır, iş
+    mantığı KOPYALANMAZ (Madde 15/16; `test_http_and_cli_share_appservice` kanıtlar). Uç noktalar: GET /health,
+    /readiness (200/503), /metrics, /domains, /domains/{n}/contract|stats, /events + POST /domains/{n}/{op}
+    (JSON gövde=kwargs). Domain authz HTTP'de de yürürlükte (UnauthorizedError→403, ValidationError→400,
+    NotFound→404, Transition→409). **Tek-thread'li** (persistence eşzamanlılık bulgusu → serileştirme), varsayılan
+    127.0.0.1 (ağ-auth henüz yok — dürüst). `python -m mio_core serve [--host --port]`. `docs/development/
+    HTTP_API.md`, `tests/test_http_api.py` (6). `.env`/`.env.example` adapter değişkenleriyle düzenlendi
+    (MIO_WORKSPACE/MIO_HTTP_HOST/PORT/LLM_ENABLED; çekirdek env OKUMAZ). Tam süit **808**.
+  - **SIRADAKİ: #3 Connector katmanı** — e-posta/takvim/dosya/mesajlaşma gerçek dış entegrasyon (adapter deseni;
+    resilience'a anlam kazandırır + doğal dil için LLM connector). Sonra #4 Monitoring stack (Prometheus/
+    OpenTelemetry; mevcut mio.metrics()/StructuredFormatter/Tracer'ı gerçek gözlem sistemine bağla). Ağ-auth
+    (token/mTLS) API için ayrı katman. FastAPI/Flask istenirse AYRI adapter paketi (çekirdeğe bağımlılık YOK).
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her
