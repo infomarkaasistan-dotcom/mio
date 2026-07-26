@@ -1,0 +1,10 @@
+[project]
+name = "mio-executive-os"
+version = "0.1.0"
+description = "MIO Executive OS — bağımsız, LLM-bağımsız Executive Operating System çekirdeği"
+requires-python = ">=3.10"
+dependencies = []  # Executive Core stdlib-only: model/framework bağımlılığı YOK
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,0 +1,49 @@
+name: CI
+
+# MIO Executive OS — Continuous Integration (Production Hardening #4).
+# Çekirdek stdlib-only (harici bağımlılık YOK); yalnız pytest gerekir.
+# NOT: Bu workflow etkinleşmek için repo'nun bir git deposu + GitHub remote'u olmalıdır
+#      (repo henüz git değilse: `git init` + ilk commit + push). Bkz. docs/development/CI.md.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python >= 3.10. 3.13/3.14 bilerek dışarıda: yerel ortamda 3.14 kırık (bkz. proje notları).
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pytest (çekirdek bağımlılıksız — yalnız test koşucusu)
+        run: python -m pip install --upgrade pip pytest
+
+      # --- Mimari fitness gate: değişmezler önce, hızlı geri-bildirim (Production Hardening #1) ---
+      - name: Architecture fitness gate
+        run: python -m pytest tests/test_fitness_functions.py -q
+
+      # --- Operasyonel hazırlık kapısı (Production Hardening #2) ---
+      - name: Operational readiness gate
+        run: python -m pytest tests/test_operational_readiness.py -q
+
+      # --- Tam süit (tüm domainler + fitness + readiness) ---
+      - name: Full test suite
+        run: python -m pytest -q

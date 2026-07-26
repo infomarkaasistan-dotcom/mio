@@ -1,0 +1,43 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# --- Sanal ortam / araçlar ---
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- MIO çalışma-zamanı artefaktları (kalıcı DEĞİL, yeniden üretilir) ---
+# SQLite domain depoları + WAL/SHM yan dosyaları
+*.db
+*.db-wal
+*.db-shm
+# Varsayılan boot workspace(ler)i ve runtime çıktıları
+.mio/
+mio_workspace/
+*.log
+
+# --- Sırlar / gizli (ASLA commit edilmez) ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.*
+
+# --- Gereksiz/stray ---
+Yeni Metin Belgesi.txt
+
+# --- OS / editör ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
