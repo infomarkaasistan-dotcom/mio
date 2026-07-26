@@ -36,7 +36,10 @@ _INDEX = {
         "GET /domains/{name}/contract": "domain sözleşmesi",
         "GET /domains/{name}/stats": "domain metrikleri",
         "GET /events?limit=N": "son olaylar",
+        "GET /connectors": "kayıtlı connector'lar (Capability Adapter Layer)",
+        "GET /capabilities": "capability → sağlayan connector'lar",
         "POST /domains/{name}/{operation}": "operasyon çağrısı (JSON gövde = kwargs, ör. {\"actor\":\"owner\"})",
+        "POST /capabilities/{capability}": "capability çalıştır (JSON gövde=request; ?actor=&approved=)",
     },
 }
 
@@ -74,6 +77,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             if parts == ["events"]:
                 limit = int(query.get("limit", ["20"])[0]) if query.get("limit") else 20
                 return 200, appservice.events(mio, limit)
+            if parts == ["connectors"]:
+                return 200, appservice.connectors_overview(mio)
+            if parts == ["capabilities"]:
+                return 200, appservice.capabilities_catalog(mio)
             if len(parts) == 3 and parts[0] == "domains" and parts[2] == "contract":
                 return 200, appservice.domain_contract(mio, parts[1])
             if len(parts) == 3 and parts[0] == "domains" and parts[2] == "stats":
@@ -87,6 +94,17 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                     return 400, {"error": 'gövde bir JSON nesnesi olmalı, ör: {"actor":"owner","name":"S"}'}
                 result = appservice.call(mio, parts[1], parts[2], body)
                 return 200, {"result": result}
+            # POST /capabilities/{capability}  gövde = request ; ?actor=&approved=true
+            if len(parts) == 2 and parts[0] == "capabilities":
+                actor = query.get("actor", ["owner"])[0]
+                approved = query.get("approved", ["false"])[0].lower() in ("1", "true", "yes")
+                outcome = appservice.execute_capability(mio, parts[1], body if isinstance(body, dict) else {},
+                                                        actor=actor, user_approved=approved)
+                # capability çalıştırma çökmez; connector_unavailable → 503, requires_approval → 403
+                status = 200 if outcome.get("ok") else (
+                    503 if outcome.get("status") == "connector_unavailable" else
+                    403 if outcome.get("status") == "requires_approval" else 502)
+                return status, outcome
             return 404, {"error": f"yol bulunamadı: POST /{path.strip('/')}"}
 
         return 405, {"error": f"desteklenmeyen metod: {method}"}

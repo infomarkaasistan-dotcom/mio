@@ -75,6 +75,16 @@ def test_call_error_paths(mio):
     assert rc == 1 and "HATA" in out and "Unauthorized" in out
 
 
+def test_connector_commands(mio):
+    # connectors/capabilities boş (varsayılan) ama komutlar çalışır
+    assert run_command(mio, ["connectors"])[0] == 0
+    assert run_command(mio, ["capabilities"])[0] == 0
+    # execute: connector yok → çökmez, connector_unavailable (çıkış 0, dürüst sonuç)
+    code, out = run_command(mio, ["execute", "send_email", '{"to":"a@b.com"}'])
+    assert code == 0 and json.loads(out)["status"] == "connector_unavailable"
+    assert run_command(mio, ["execute"])[0] == 2           # eksik capability
+
+
 def test_unknown_command_and_help(mio):
     assert run_command(mio, ["uydurma"])[0] == 2
     assert run_command(mio, [])[0] == 0

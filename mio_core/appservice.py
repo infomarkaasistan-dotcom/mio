@@ -94,7 +94,30 @@ def call(mio, domain: str, operation: str, kwargs: dict) -> Any:
     return fn(**kwargs)
 
 
+# ---- Capability Adapter Layer (Connector) yüzeyi — CLI+HTTP ortak ----
+def connectors_overview(mio) -> list[dict[str, Any]]:
+    return mio.connector_registry.overview()
+
+
+def capabilities_catalog(mio) -> dict[str, Any]:
+    return {"capabilities": mio.connector_registry.capabilities(),
+            "stats": mio.connector_registry.stats()}
+
+
+def execute_capability(mio, capability: str, request: Any, *, actor: str = "owner",
+                       user_approved: bool = False) -> dict[str, Any]:
+    """Capability'yi Connector Manager üzerinden çalıştırır (Executive isimle değil capability ile çağırır).
+
+    ASLA raise ETMEZ — connector yoksa dürüst connector_unavailable döner (Madde 8; sistem çökmez)."""
+    if request is None:
+        request = {}
+    if not isinstance(request, dict):
+        raise BadRequest('request bir nesne olmalı, ör: {"to":"a@b.com","subject":"..."}')
+    return mio.connectors.execute(capability, request, actor=actor, user_approved=user_approved)
+
+
 __all__ = [
     "NotFound", "BadRequest", "PUBLIC_DOMAINS",
     "list_domains", "domain_contract", "domain_stats", "metrics", "readiness", "health", "events", "call",
+    "connectors_overview", "capabilities_catalog", "execute_capability",
 ]

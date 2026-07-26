@@ -25,10 +25,19 @@
     127.0.0.1 (ağ-auth henüz yok — dürüst). `python -m mio_core serve [--host --port]`. `docs/development/
     HTTP_API.md`, `tests/test_http_api.py` (6). `.env`/`.env.example` adapter değişkenleriyle düzenlendi
     (MIO_WORKSPACE/MIO_HTTP_HOST/PORT/LLM_ENABLED; çekirdek env OKUMAZ). Tam süit **808**.
-  - **SIRADAKİ: #3 Connector katmanı** — e-posta/takvim/dosya/mesajlaşma gerçek dış entegrasyon (adapter deseni;
-    resilience'a anlam kazandırır + doğal dil için LLM connector). Sonra #4 Monitoring stack (Prometheus/
-    OpenTelemetry; mevcut mio.metrics()/StructuredFormatter/Tracer'ı gerçek gözlem sistemine bağla). Ağ-auth
-    (token/mTLS) API için ayrı katman. FastAPI/Flask istenirse AYRI adapter paketi (çekirdeğe bağımlılık YOK).
+  - **✅ #3 Connector (Capability Adapter Layer) TAMAM** — kullanıcı direktifi: "AI connector" DEĞİL "Capability
+    Adapter Layer". `mio_core/connectors/`: **ConnectorRegistry** (hangi connector/capability/öncelik/health) +
+    **ConnectorManager** (`execute(capability, request)` — Executive isimle DEĞİL capability ile çağırır; dispatch
+    priority+health + **failover** Madde 28 + graceful degradation: connector yoksa `connector_unavailable` ÇÖKMEZ
+    Madde 8 + **Madde 24** yüksek-risk system capability onay) + **Advisor** (`advisor.ask()` → AI capability; LLM
+    DANIŞMAN karar vermez Madde 1; Executive asla openai.chat() görmez). 4 kategori: ai/communication/productivity/
+    system. `CallableConnector` = dış sistem adapter (DI). `mio.connectors/.connector_registry/.advisor`. Varsayılan
+    HİÇ connector yok → her capability dürüstçe unavailable, sistem çalışır. appservice+CLI(connectors/capabilities/
+    execute)+HTTP(GET /connectors,/capabilities; POST /capabilities/{cap}) AYNI yüzey. `mio_core/connectors/README.md`,
+    `tests/test_connectors.py` (8). Tam süit **818**. Gerçek connector çekirdekte YOK (adapter'da).
+  - **SIRADAKİ: #4 Monitoring stack** — Prometheus/OpenTelemetry; mevcut `mio.metrics()`/StructuredFormatter/Tracer'ı
+    gerçek gözlem sistemine bağla (muhtemelen /metrics'i Prometheus text-format veren bir adapter + OTLP export).
+    Ayrıca: gerçek connector adapter'ları bağlama (SMTP/Ollama/Shell — resilience'a + doğal dile anlam), API ağ-auth.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

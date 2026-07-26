@@ -41,6 +41,7 @@ from mio_core.domains.distributed_execution import DistributedExecutionDomain, D
 from mio_core.domains.autonomous_ops import AutonomousOperationsDomain, AutoOpsRepository
 from mio_core.domains.digital_twin import DigitalTwinDomain, DigitalTwinRepository
 from mio_core.domains.extension_sdk import ExtensionSDKDomain, ExtensionRepository
+from mio_core.connectors import Advisor, ConnectorManager, ConnectorRegistry
 from mio_core.domains.document_intelligence import DocumentIntelligenceDomain, DocumentRepository
 from mio_core.domains.execution import ExecutionDomain, ExecutionRepository
 from mio_core.domains.executive import ExecutiveDomain
@@ -207,6 +208,10 @@ class MIORuntime:
         self.autonomous_operations: AutonomousOperationsDomain = components["autonomous_operations"]
         self.digital_twin: DigitalTwinDomain = components["digital_twin"]
         self.extension_sdk: ExtensionSDKDomain = components["extension_sdk"]
+        # Capability Adapter Layer (Connector): Executive yalnız execute(capability, request) bilir.
+        self.connector_registry: ConnectorRegistry = components["connector_registry"]
+        self.connectors: ConnectorManager = components["connectors"]
+        self.advisor: Advisor = components["advisor"]
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -340,7 +345,7 @@ class MIORuntime:
                     domains[name] = {"error": str(exc)[:120]}
         bus_health = {"subscriber_errors": self.bus.subscriber_errors()} if self.bus is not None else {}
         return {"domain_count": len(domains), "domains": domains, "event_bus": bus_health,
-                "closed": self._closed}
+                "connectors": self.connectors.stats(), "closed": self._closed}
 
     def observability(self) -> dict:
         """Tek üretim-görünümü: sağlık + diagnostics + analytics + MCP store + son olaylar (Area 6).
@@ -713,6 +718,12 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
     extension_repo = ExtensionRepository(_p("extensions.db"))
     extension_sdk = ExtensionSDKDomain(extension_repo, bus=bus)
 
+    # --- Capability Adapter Layer (Connector): Executive→Manager→[AI/Comm/Productivity/System]. Connector'lar
+    #     runtime.connectors.register(...) ile bağlanır; hiçbiri yoksa dürüst connector_unavailable (çökmez). ---
+    connector_registry = ConnectorRegistry()
+    connectors = ConnectorManager(connector_registry, bus=bus)
+    advisor = Advisor(connectors)
+
     # --- Kalıcılık (Area 3): önceki öğrenilen bilgi + metrikleri geri yükle ---
     kv = JsonKVStore(_p("ecosystem.db"))
     knowledge.import_items(kv.get("knowledge_learned", []))          # eski kv yolu (geriye-uyum/migrasyon)
@@ -738,7 +749,8 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
         marketplace_domain=marketplace_domain, knowledge_marketplace=knowledge_marketplace,
         federation=federation, distributed_execution=distributed_execution,
         autonomous_operations=autonomous_operations, digital_twin=digital_twin,
-        extension_sdk=extension_sdk, mcp_hub=mcp_hub,
+        extension_sdk=extension_sdk, connector_registry=connector_registry, connectors=connectors,
+        advisor=advisor, mcp_hub=mcp_hub,
         bus=bus, versions=versions, marketplace=marketplace, recommendation=recommendation,
         workspace=workspace,
         policy_profiles=policy_profiles, store=store, diagnostics=diagnostics, analytics=analytics,

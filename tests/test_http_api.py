@@ -54,6 +54,22 @@ def test_post_call_and_error_mapping(mio):
     assert route_request(mio, "POST", "/domains/iot/_private", {}, {})[0] == 400
 
 
+def test_connector_routes(mio):
+    assert route_request(mio, "GET", "/connectors", {}, None)[0] == 200
+    assert route_request(mio, "GET", "/capabilities", {}, None)[0] == 200
+    # POST /capabilities/{cap} — connector yok → 503 connector_unavailable (çökmez)
+    st, out = route_request(mio, "POST", "/capabilities/send_email", {}, {"to": "a@b.com"})
+    assert st == 503 and out["status"] == "connector_unavailable"
+    # yüksek-risk onaysız → 403 requires_approval (önce fake connector bağla)
+    from mio_core.connectors import CallableConnector, ConnectorCategory, Cap
+    mio.connectors.register(CallableConnector("shell", ConnectorCategory.SYSTEM,
+                                              handlers={Cap.SHELL_EXEC: lambda r: {"ran": r.get("cmd")}}))
+    st, out = route_request(mio, "POST", "/capabilities/shell.exec", {}, {"cmd": "ls"})
+    assert st == 403 and out["status"] == "requires_approval"
+    st, out = route_request(mio, "POST", "/capabilities/shell.exec", {"approved": ["true"]}, {"cmd": "ls"})
+    assert st == 200 and out["ok"] is True
+
+
 def test_readiness_503_when_closed(tmp_path):
     m = boot(workspace=str(tmp_path / "mio"), connect_ollama=False, discover_hw=False)
     m.close()

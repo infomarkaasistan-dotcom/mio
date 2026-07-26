@@ -12,6 +12,9 @@ Komutlar:
   readiness | health              → operasyonel hazırlık / sağlık (readiness ready değilse çıkış kodu 1)
   events [N]                      → son N event bus olayı (varsayılan 20)
   call <domain> <op> [json]       → bir domain operasyonunu reflektif çağırır (json = {"actor":"owner",...})
+  connectors                      → kayıtlı connector'lar (kategori/capability/öncelik/health)
+  capabilities                    → capability → sağlayan connector'lar kataloğu
+  execute <capability> [json]     → capability'yi Connector Manager'a çalıştırt (connector yoksa unavailable)
   serve [--host H --port P]       → HTTP API adapter'ını başlatır (stdlib http.server; aynı appservice)
   help                            → bu yardım
   quit | exit                     → çık (etkileşimli mod)"""
@@ -68,6 +71,12 @@ def run_command(mio, argv: list) -> tuple[int, str]:
             return 0, _fmt(appservice.domain_stats(mio, rest[0]))
         if name == "call":
             return _do_call(mio, rest)
+        if name == "connectors":
+            return 0, _fmt(appservice.connectors_overview(mio))
+        if name == "capabilities":
+            return 0, _fmt(appservice.capabilities_catalog(mio))
+        if name == "execute":
+            return _do_execute(mio, rest)
         return 2, f"bilinmeyen komut: {name}\n\n{_HELP}"
     except (NotFound, BadRequest) as exc:      # istek/kullanım hatası → 2 (client error)
         return 2, f"{type(exc).__name__}: {exc}"
@@ -90,6 +99,23 @@ def _do_call(mio, rest: list) -> tuple[int, str]:
         kwargs = parsed
     result = appservice.call(mio, rest[0], rest[1], kwargs)   # iş mantığı domainde; burada delege
     return 0, _fmt(result)
+
+
+def _do_execute(mio, rest: list) -> tuple[int, str]:
+    if not rest:
+        return 2, 'kullanım: execute <capability> [json]   ör: execute send_email {"to":"a@b.com"}'
+    raw = " ".join(rest[1:]).strip()
+    request: dict[str, Any] = {}
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            return 2, f"geçersiz JSON: {exc}"
+        if not isinstance(parsed, dict):
+            return 2, 'JSON bir nesne olmalı, ör: {"to":"a@b.com"}'
+        request = parsed
+    # capability çalıştırma ASLA çökmez; connector yoksa dürüst connector_unavailable döner
+    return 0, _fmt(appservice.execute_capability(mio, rest[0], request))
 
 
 def interactive(mio) -> int:
