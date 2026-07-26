@@ -13,6 +13,7 @@ Komutlar:
   readiness | health              → operasyonel hazırlık / sağlık (readiness ready değilse çıkış kodu 1)
   events [N]                      → son N event bus olayı (varsayılan 20)
   call <domain> <op> [json]       → bir domain operasyonunu reflektif çağırır (json = {"actor":"owner",...})
+  connect                         → env'e göre GERÇEK connector adapter'larını bağla (filesystem/git/smtp/...)
   connectors                      → kayıtlı connector'lar (kategori/capability/öncelik/health)
   capabilities                    → capability → sağlayan connector'lar kataloğu
   execute <capability> [json]     → capability'yi Connector Manager'a çalıştırt (connector yoksa unavailable)
@@ -74,6 +75,9 @@ def run_command(mio, argv: list) -> tuple[int, str]:
             return 0, _fmt(appservice.domain_stats(mio, rest[0]))
         if name == "call":
             return _do_call(mio, rest)
+        if name == "connect":                        # env'e göre gerçek connector'ları bağla
+            from mio_core.connectors.adapters import register_from_env
+            return 0, _fmt(register_from_env(mio.connectors, workspace=getattr(mio, "_workspace", ".mio")))
         if name == "connectors":
             return 0, _fmt(appservice.connectors_overview(mio))
         if name == "capabilities":

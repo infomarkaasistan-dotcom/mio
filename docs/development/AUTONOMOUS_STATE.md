@@ -43,10 +43,19 @@
     appservice+CLI(`prometheus`)+HTTP(`GET /metrics/prometheus` text/plain, `GET /metrics/otlp` JSON) AYNI yüzey;
     `_send` metin desteği eklendi. stdlib-only (json+urllib). `docs/development/MONITORING.md`,
     `tests/test_monitoring.py` (9). Tam süit **827**. Full OTLP-protobuf/OTel-SDK = AYRI adapter paketi (gelecek).
-  - **🎉 4 Interface katmanı da TAMAM (CLI/HTTP/Connector/Monitoring).** SIRADAKİ adaylar: gerçek connector adapter
-    bağlama (SMTP/Ollama/Shell → resilience'a + doğal dile anlam; ilk somut dış entegrasyon), API ağ-auth (token/
-    mTLS), Prometheus/Grafana/otelcol ile canlı deploy doğrulama, ya da Resilience'ı gerçek connector çağrılarına
-    sarma. Kullanıcı yönlendirmesi bekleniyor.
+  - **✅ GERÇEK connector adapter'ları TAMAM** (kullanıcı: "tüm gerçek connector adapterlarını bağla"). `mio_core/
+    connectors/adapters/` — 4 kategori, hepsi stdlib-only + enjekte-edilebilir transport: **System** filesystem
+    (sandbox'lı, CANLI) · shell (subprocess, CANLI, yüksek-risk) · git (CANLI git varsa); **Communication** smtp
+    (smtplib) · webhook (Slack/Discord/Telegram/generic); **AI** ollama (yerel) · openai-uyumlu (OpenAI/DeepSeek/
+    Qwen tek adapter); **Productivity** caldav (takvim). `register_from_env` env'e göre bağlar (sır loglamaz);
+    `python -m mio_core connect` (+ CLI `connect`). Varsayılan: filesystem+git (güvenli). **DÜRÜST doğrulama:**
+    System CANLI test; ağ-tabanlılar gerçek kod + enjekte-transport (canlı serviste config ile çalışır, hesap
+    olmadan doğrulanmadı — Madde 8). `docs/development/CONNECTOR_ADAPTERS.md`, `tests/test_connector_adapters.py`
+    (11). Madde 24 (fs.write/shell.exec vb.) + Madde 1 (AI danışman) yürürlükte. Tam süit **838**.
+  - **🎉 4 Interface katmanı + gerçek connector'lar TAMAM.** SIRADAKİ adaylar: API ağ-auth (token/mTLS — reflektif
+    call + capability execute'i dışa açmadan önce), Resilience'ı connector çağrılarına sarma (artık gerçek adapter
+    var → anlamlı), canlı deploy (Ollama/SMTP config + Prometheus/Grafana), Advisor'ı Executive karar-akışına danışman
+    olarak entegre (LLM tavsiyesi + deterministik karar). Kullanıcı yönlendirmesi bekleniyor.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her
