@@ -42,6 +42,8 @@ _INDEX = {
         "GET /diagnose": "tam sağlık denetimi + Executive Score",
         "GET /executive": "executive özet DTO (CLI/UI/HTTP aynı)",
         "GET /models": "kurulu/yüklü modeller + VRAM'e göre öneri",
+        "GET /config": "yapılandırma teşhisi (.env + os.environ; sır maskeli)",
+        "GET /mcp | /mcp/status | /mcp/doctor | /mcp/info/{id}": "MCP Manager",
         "GET /inference/analyze": "yerel çıkarım ortamı analizi",
         "POST /inference/ensure-ready": "MIO ortamı hazırla (model seç/indir/durdur/test; body={approve,auto_pull,run_test})",
         "GET /connectors": "kayıtlı connector'lar (Capability Adapter Layer)",
@@ -97,6 +99,18 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.executive_summary(mio)
             if parts == ["models"]:
                 return 200, appservice.models_overview(mio)
+            if parts == ["config"]:
+                return 200, appservice.config_diagnostics(mio)
+            if parts == ["mcp"] or parts == ["mcp", "list"]:
+                return 200, appservice.mcp_list(mio)
+            if parts == ["mcp", "status"]:
+                return 200, appservice.mcp_status(mio)
+            if parts == ["mcp", "doctor"]:
+                return 200, appservice.mcp_doctor(mio)
+            if parts == ["mcp", "stats"]:
+                return 200, appservice.mcp_stats(mio)
+            if len(parts) == 3 and parts[0] == "mcp" and parts[1] == "info":
+                return 200, appservice.mcp_info(mio, parts[2])
             if parts == ["inference", "analyze"]:
                 return 200, appservice.inference_analyze(mio)
             if parts == ["connectors"]:

@@ -117,15 +117,78 @@ def execute_capability(mio, capability: str, request: Any, *, actor: str = "owne
 
 
 def connect_env(mio, *, workspace: Optional[str] = None) -> dict[str, Any]:
-    """env'e göre gerçek connector adapter'larını bağlar (Application Service — arayüzler bunu çağırır)."""
+    """Yapılandırmaya göre gerçek connector adapter'larını bağlar (Application Service — arayüzler bunu çağırır).
+
+    KÖK NEDEN DÜZELTMESİ: `mio.config` (=.env + os.environ) kullanılır — artık `.env`'deki `LLM_ENABLED=true`,
+    `SMTP_HOST`, `OPENAI_API_KEY` vb. GERÇEKTEN okunur (önceden yalnız os.environ'a bakılıyordu)."""
     from mio_core.connectors.adapters import register_from_env
     ws = workspace or getattr(mio, "_workspace", ".mio")
-    summary = register_from_env(mio.connectors, workspace=ws)
+    summary = register_from_env(mio.connectors, env=mio.config.as_dict(), workspace=ws)
     if "ollama" in summary.get("registered", []):
         hw = mio.hardware.report()
         summary["hardware_warnings"] = hw["warnings"]
         summary["hardware_recommendations"] = hw["recommendations"]
     return summary
+
+
+def config_diagnostics(mio) -> dict[str, Any]:
+    """Yapılandırma teşhisi DTO'su (sır değerleri maskeli): hangi anahtar nereden geliyor + LLM/Ollama durumu."""
+    diag = mio.config.diagnostics()
+    diag["llm_enabled"] = mio.config.get_bool("LLM_ENABLED", False)
+    diag["ollama_reachable"] = mio.local_inference.ollama_reachable()
+    return diag
+
+
+# ---- MCP Manager yüzeyi — CLI/HTTP/UI ortak (iş mantığı mcp_management domaininde) ----
+def mcp_list(mio, *, actor: str = "owner") -> list[dict[str, Any]]:
+    return mio.mcp_management.list_servers(actor)
+
+
+def mcp_status(mio, *, actor: str = "owner") -> dict[str, Any]:
+    return {"health": mio.mcp_management.health_check(actor), "stats": mio.mcp_management.stats()}
+
+
+def mcp_doctor(mio, *, actor: str = "owner") -> dict[str, Any]:
+    """Tam MCP teşhisi: sunucular + discover + health + stats (kompozit; alt-çağrılar domaine delege)."""
+    return {"servers": mio.mcp_management.list_servers(actor),
+            "discovery": mio.mcp_management.discover(actor),
+            "health": mio.mcp_management.health_check(actor),
+            "stats": mio.mcp_management.stats()}
+
+
+def mcp_discover(mio, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.mcp_management.discover(actor)
+
+
+def mcp_stats(mio) -> dict[str, Any]:
+    return mio.mcp_management.stats()
+
+
+def mcp_info(mio, server_id: str, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.mcp_management.describe(actor, server_id)
+
+
+def mcp_register(mio, name: str, *, actor: str = "owner", **kwargs) -> dict[str, Any]:
+    """MCP sunucusu kaydet (install). name zorunlu; url/transport/command kwargs olarak geçer."""
+    return mio.mcp_management.register_server(actor, name, **kwargs)
+
+
+def mcp_remove(mio, server_id: str, *, actor: str = "owner") -> dict[str, Any]:
+    mio.mcp_management.remove_server(actor, server_id)
+    return {"removed": server_id}
+
+
+def mcp_activate(mio, *, actor: str = "owner") -> dict[str, Any]:
+    """Güvenilir MCP sunucularının capability'lerini platforma bağla (enable)."""
+    return mio.mcp_management.activate(actor)
+
+
+def mcp_trust(mio, server_id: str, level: str, *, actor: str = "owner") -> dict[str, Any]:
+    return mio.mcp_management.set_trust(actor, server_id, level)
+
+
+def mcp_contract(mio) -> dict[str, Any]:
+    return mio.mcp_management.contract()
 
 
 # ---- Monitoring yüzeyi — CLI+HTTP ortak ----
@@ -223,8 +286,10 @@ def inference_ensure_ready(mio, *, approve=frozenset(), auto_pull: bool = True,
 __all__ = [
     "NotFound", "BadRequest", "PUBLIC_DOMAINS",
     "list_domains", "domain_contract", "domain_stats", "metrics", "readiness", "health", "events", "call",
-    "connectors_overview", "capabilities_catalog", "execute_capability", "connect_env",
+    "connectors_overview", "capabilities_catalog", "execute_capability", "connect_env", "config_diagnostics",
     "prometheus_metrics", "otlp_metrics", "hardware_report",
     "inference_analyze", "inference_ensure_ready",
-    "diagnose", "executive_summary", "models_overview",
+    "diagnose", "executive_summary", "models_overview", "config_diagnostics",
+    "mcp_list", "mcp_status", "mcp_doctor", "mcp_discover", "mcp_stats", "mcp_info",
+    "mcp_register", "mcp_remove", "mcp_activate", "mcp_trust", "mcp_contract",
 ]

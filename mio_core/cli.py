@@ -38,10 +38,17 @@ _HELP_SECTIONS = [
                     ("connectors", "kayıtlı connector'lar + health"),
                     ("capabilities", "capability → sağlayan connector'lar"),
                     ("execute <cap> [json]", "capability çalıştır (connector yoksa unavailable)")]),
+    ("MCP", [("mcp list", "kayıtlı MCP sunucuları"),
+             ("mcp status / doctor", "MCP sağlık / tam teşhis"),
+             ("mcp install <name> [json]", "MCP sunucusu kaydet"),
+             ("mcp enable", "güvenilir MCP capability'lerini bağla"),
+             ("mcp trust <id> <level>", "MCP güven seviyesi (untrusted/trusted/verified)"),
+             ("mcp info/remove/discover/stats", "bilgi / kaldır / keşif / metrik")]),
     ("Monitoring", [("metrics", "birleşik metrikler (JSON)"),
                     ("prometheus", "Prometheus text exposition"),
                     ("events [N]", "son N event bus olayı")]),
-    ("System", [("serve [--host --port]", "HTTP API adapter'ını başlat"),
+    ("System", [("config", ".env + os.environ yapılandırma teşhisi (hangi değer nereden)"),
+                ("serve [--host --port]", "HTTP API adapter'ını başlat"),
                 ("--json", "herhangi bir komutta ham JSON çıktı zorla"),
                 ("help", "bu yardım"), ("quit / exit", "çık")]),
 ]
@@ -120,8 +127,12 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
             return _do_execute(mio, rest)
         if name == "inference":
             return _do_inference(mio, rest)
+        if name == "mcp":
+            return _do_mcp(mio, rest)
         if name == "connect":
             return 0, "raw", appservice.connect_env(mio)
+        if name == "config":
+            return 0, "raw", appservice.config_diagnostics(mio)
         return 2, "text", f"bilinmeyen komut: {name}  ('help' ile komut listesi)"
     except (NotFound, BadRequest) as exc:
         return 2, "text", f"{type(exc).__name__}: {exc}"
@@ -158,6 +169,47 @@ def _do_inference(mio, rest: list) -> tuple[int, str, Any]:
         rep = appservice.inference_ensure_ready(mio, approve=set(rest[1:]))
         return (0 if rep.get("ready") else 1), "inference_ensure", rep
     return 2, "text", "kullanım: inference [analyze | status | ensure-ready [onay...]]"
+
+
+def _do_mcp(mio, rest: list) -> tuple[int, str, Any]:
+    """MCP Manager alt-komutları — hepsi appservice'e delege (iş mantığı mcp_management domaininde)."""
+    sub = rest[0] if rest else "list"
+    args = rest[1:]
+    if sub in ("list", "ls"):
+        return 0, "mcp_list", appservice.mcp_list(mio)
+    if sub in ("status", "health"):
+        return 0, "mcp_status", appservice.mcp_status(mio)
+    if sub in ("doctor", "diagnose"):
+        return 0, "mcp_doctor", appservice.mcp_doctor(mio)
+    if sub == "discover":
+        return 0, "raw", appservice.mcp_discover(mio)
+    if sub == "stats":
+        return 0, "raw", appservice.mcp_stats(mio)
+    if sub == "capabilities":
+        return 0, "raw", appservice.mcp_contract(mio)
+    if sub in ("info", "describe", "config"):
+        if not args:
+            return 2, "text", f"kullanım: mcp {sub} <server_id>"
+        return 0, "raw", appservice.mcp_info(mio, args[0])
+    if sub in ("install", "register", "add"):
+        if not args:
+            return 2, "text", 'kullanım: mcp install <name> [json]  ör: mcp install fs {"transport":"stdio","command":"npx ..."}'
+        kwargs = _parse_json_arg(args[1:])
+        if isinstance(kwargs, str):
+            return 2, "text", kwargs
+        return 0, "raw", appservice.mcp_register(mio, args[0], **kwargs)
+    if sub in ("uninstall", "remove", "rm"):
+        if not args:
+            return 2, "text", "kullanım: mcp remove <server_id>"
+        return 0, "raw", appservice.mcp_remove(mio, args[0])
+    if sub in ("enable", "activate"):
+        return 0, "raw", appservice.mcp_activate(mio)
+    if sub == "trust":
+        if len(args) < 2:
+            return 2, "text", "kullanım: mcp trust <server_id> <untrusted|trusted|verified>"
+        return 0, "raw", appservice.mcp_trust(mio, args[0], args[1])
+    return 2, "text", ("kullanım: mcp [list | status | doctor | discover | stats | capabilities | "
+                       "info <id> | install <name> [json] | remove <id> | enable | trust <id> <level>]")
 
 
 def _parse_json_arg(parts: list):
@@ -203,16 +255,23 @@ def startup_sequence(mio, ui: UI, *, workspace: str) -> None:
                   "Persistence", "Brains", "Scheduler", "Monitoring", "Runtime"):
         ui.out(ui.boot_step(label, ok=True))
     ui.out(ui.rule())
-    # Donanım farkındalığı (kısa, executive özet)
+    # Donanım + LLM farkındalığı (kısa, executive özet — config'ten LLM durumu)
     try:
         hw = appservice.hardware_report(mio)
         g = hw["gpus"][0] if hw.get("gpus") else None
         ol = hw.get("ollama", {})
+        llm_on = mio.config.get_bool("LLM_ENABLED", False)
         fields = [("GPU", g["name"].replace("NVIDIA GeForce ", "") if g else "none", "ok" if g else "warn"),
                   ("VRAM", f"{g['memory_free_mb']}MB" if g else "-", "ok" if g else "mute"),
                   ("CUDA", hw.get("cuda", {}).get("version") or "no", "ok" if hw.get("cuda", {}).get("available") else "warn"),
-                  ("Ollama", "on" if ol.get("reachable") else "off", "ok" if ol.get("reachable") else "mute")]
+                  ("LLM", "enabled" if llm_on else "disabled", "ok" if llm_on else "mute"),
+                  ("Ollama", "detected" if ol.get("reachable") else "off", "ok" if ol.get("reachable") else "mute")]
         ui.out(ui.statusline(fields))
+        models = ol.get("loaded_models", [])
+        installed = mio.local_inference.installed_models() if ol.get("reachable") else []
+        if installed:
+            ui.out(ui.note(f"Installed models: {', '.join(installed[:5])}"
+                           + (f" (+{len(installed) - 5})" if len(installed) > 5 else ""), "info"))
         for w in hw.get("warnings", [])[:2]:
             ui.out(ui.note(w, "warn"))
     except Exception:  # noqa: BLE001 — donanım özeti başarısızsa startup'ı bozmaz

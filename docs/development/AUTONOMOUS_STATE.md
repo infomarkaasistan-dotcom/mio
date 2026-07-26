@@ -87,10 +87,24 @@
     run_command varsayılan style=json (mevcut testler korunur); interactive/tek-atış-TTY rich. HTTP: GET /diagnose,
     /executive, /models (AYNI DTO — interface eşitliği). Fitness: `tests/test_interface_architecture.py` (arayüz
     iş-mantığı importu YOK + CLI/HTTP aynı DTO). `tests/test_cli_ui.py`. Tam süit **874+2skip**.
-  - **🎉 MIO tek-OS-çok-arayüz + premium CLI command bridge.** SIRADAKİ adaylar (direktifin kalan kalemleri):
-    MCP first-class manager (mcp list/status/doctor/install...), HTTP server lifecycle (start/stop/status CLI'dan),
-    workspace CRUD, auto-complete + persistent history (readline), live `watch` event stream, tokens/sec ölçümü,
-    Advisor'ı seçili modelle otomatik bağla, API ağ-auth (token/mTLS).
+  - **✅ Config kök-neden düzeltmesi TAMAM** (kullanıcı: ".env LLM_ENABLED=true ama MIO false davranıyor").
+    KÖK NEDEN: `.env` HİÇ yüklenmiyordu (kodda load_dotenv YOK); register_from_env yalnız os.environ'a bakıyordu →
+    `.env`'deki LLM_ENABLED runtime'a ulaşmıyordu → Ollama atlanıyordu. HARDCODE YOK — pipeline düzeltildi:
+    `mio_core/platform/config.py` Config (stdlib .env parser + os.environ birleşimi; öncelik overrides>environ>
+    env_file; get_bool case-insensitive; sır maskeli diagnostics). boot(env_file=".env", config=) → `mio.config`
+    (TEK kaynak, tüm arayüzler tüketir). connect_env artık config.as_dict() okur; MIO_AUTO_INFERENCE config'ten.
+    Doğrulandı: LLM_ENABLED=true env_file'dan okundu, connect ollama'yı bağladı. CLI `config` + HTTP GET /config +
+    startup'ta "LLM enabled/Ollama detected/Installed models". `tests/test_config.py` (21, REGRESYON KORUMASI).
+  - **✅ MCP Manager CLI/HTTP açıldı** (kullanıcı: "CLI MCP yönetemiyor"). ARAŞTIRMA SONUCU: MCP Manager zaten
+    IMPLEMENTED + INITIALIZED (mio.mcp_management=MCPManagementDomain + mio.mcp_hub, boot'ta restore); eksik olan
+    yalnız CLI/HTTP yüzeyiydi. appservice'e MCP DTO'ları (mcp_list/status/doctor/discover/stats/info/register/
+    remove/activate/trust/contract — hepsi mcp_management'a delege, iş mantığı CLI'da YOK). CLI `mcp [list|status|
+    doctor|install|remove|enable|trust|info|discover|stats|capabilities]`; HTTP GET /mcp,/mcp/status,/mcp/doctor,
+    /mcp/stats,/mcp/info/{id}. Boş durum DÜRÜST (placeholder yok). `tests/test_mcp_manager.py` (9: init/wiring/
+    register/discover/health/trust/CLI/HTTP/persistence). Tam süit **904+2skip**.
+  - **🎉 tek-OS-çok-arayüz + config-pipeline sağlam + MCP CLI'dan yönetilebilir.** SIRADAKİ adaylar: HTTP server
+    lifecycle CLI'dan (start/stop/status), workspace CRUD, auto-complete + persistent history (readline), live
+    `watch` event stream, tokens/sec ölçümü, Advisor'ı seçili modelle otomatik bağla, API ağ-auth.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

@@ -154,11 +154,49 @@ def _r_capability_exec(ui: UI, d: dict) -> str:
     return "\n".join(out)
 
 
+def _r_mcp_list(ui: UI, data: list) -> str:
+    if not data:
+        return (ui.section("MCP Servers") + "\n"
+                + ui.note("Kayıtlı MCP sunucusu yok — 'mcp install <name>' ile ekle.", "mute"))
+    rows = []
+    for s in data:
+        dot = ui.status_dot(s.get("status") in ("healthy", "active", "connected") or s.get("healthy"))
+        rows.append([dot + " " + str(s.get("name", s.get("id", "?"))), s.get("trust_level", s.get("trust", "")),
+                     s.get("status", ""), str(len(s.get("capabilities", [])))])
+    return ui.section(f"MCP Servers  ({len(data)})") + "\n" + ui.table(["NAME", "TRUST", "STATUS", "CAPS"], rows)
+
+
+def _r_mcp_status(ui: UI, d: dict) -> str:
+    st = d.get("stats", {})
+    out = [ui.section("MCP Status")]
+    out.append(ui.kv([("Servers", st.get("servers", 0)), ("Healthy", st.get("healthy", 0)),
+                      ("Trusted", st.get("by_trust", {}).get("trusted", 0)),
+                      ("Verified", st.get("by_trust", {}).get("verified", 0)),
+                      ("Activations", st.get("activations", 0))]))
+    health = d.get("health", {})
+    if health:
+        rows = [[k, ("✓" if (v.get("ok") if isinstance(v, dict) else v) else "✕")] for k, v in health.items()]
+        out += ["", ui.table(["SERVER", "HEALTH"], rows)]
+    else:
+        out.append(ui.note("Aktif MCP sunucusu yok (dürüst boş durum).", "mute"))
+    return "\n".join(out)
+
+
+def _r_mcp_doctor(ui: UI, d: dict) -> str:
+    out = [_r_mcp_list(ui, d.get("servers", [])), _r_mcp_status(ui, {"health": d.get("health", {}),
+                                                                     "stats": d.get("stats", {})})]
+    disc = d.get("discovery", {})
+    if disc:
+        out.append(ui.note(f"discovery: {json.dumps(disc, ensure_ascii=False)[:120]}", "info"))
+    return "\n".join(out)
+
+
 _RENDERERS = {
     "domains": _r_domains, "hardware": _r_hardware, "connectors": _r_connectors,
     "capabilities": _r_capabilities, "models": _r_models, "diagnose": _r_diagnose,
     "executive": _r_executive, "inference_ensure": _r_inference_ensure,
     "capability_exec": _r_capability_exec,
+    "mcp_list": _r_mcp_list, "mcp_status": _r_mcp_status, "mcp_doctor": _r_mcp_doctor,
 }
 
 

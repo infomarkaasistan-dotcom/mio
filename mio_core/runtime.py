@@ -43,6 +43,7 @@ from mio_core.domains.digital_twin import DigitalTwinDomain, DigitalTwinReposito
 from mio_core.domains.extension_sdk import ExtensionSDKDomain, ExtensionRepository
 from mio_core.connectors import Advisor, ConnectorManager, ConnectorRegistry
 from mio_core.monitoring import MonitoringAdapter
+from mio_core.platform.config import Config
 from mio_core.platform.hardware import HardwareDiagnostics
 from mio_core.platform.local_inference import LocalInferenceManager
 from mio_core.domains.document_intelligence import DocumentIntelligenceDomain, DocumentRepository
@@ -239,6 +240,8 @@ class MIORuntime:
         self._kv: Optional[JsonKVStore] = components.get("kv")
         self._workspace: str = components.get("workspace", "")
         self._closed: bool = False           # graceful shutdown idempotency (Operational Readiness)
+        # TEK yapılandırma kaynağı (.env + os.environ). Tüm arayüzler bunu tüketir (Interface Architecture).
+        self.config: Config = components.get("config") or Config(env_file=None)
 
     # -- production kullanım yüzeyi (gerçek, demo değil) -------------------- #
     def who_am_i(self) -> dict[str, Any]:
@@ -414,12 +417,17 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
          ollama_base_url: str = "http://localhost:11434", discover_hw: bool = True,
          mcp_servers: Optional[list[MCPServerConfig]] = None,
          mcp_transport_factory: Optional[Any] = None,
-         prepare_inference: Optional[bool] = None) -> MIORuntime:
+         prepare_inference: Optional[bool] = None,
+         env_file: Optional[str] = ".env", config: Optional[Config] = None) -> MIORuntime:
     """Gerçek MIO Executive OS'u ayağa kaldırır (kalıcı depolar + birth + gerçek adaptörler).
 
-    `prepare_inference`: MIO açılışta çalışacağı yerel çıkarım ortamını KENDİSİ hazırlasın mı (uygun modeli seç/
-    indir/fazlalık durdur/test). None → env `MIO_AUTO_INFERENCE` (varsayılan KAPALI — boot'u bloklamaz/istenmeyen
-    indirme yapmaz). Güvenli işler otomatik; model SİLME/Ollama KURULUMU onaysız YAPILMAZ (Madde 24)."""
+    `env_file`/`config`: TEK yapılandırma kaynağı. `.env` (+ os.environ) `Config`'e yüklenir; tüm arayüzler ve
+    runtime aynı `mio.config`'i tüketir. `config` verilirse o kullanılır (test/izolasyon).
+
+    `prepare_inference`: MIO açılışta çalışacağı yerel çıkarım ortamını KENDİSİ hazırlasın mı. None → `config`'ten
+    `MIO_AUTO_INFERENCE` (varsayılan KAPALI). Güvenli işler otomatik; model SİLME/Ollama KURULUMU onaysız YAPILMAZ
+    (Madde 24)."""
+    cfg = config if config is not None else Config(env_file=env_file)
     os.makedirs(workspace, exist_ok=True)
 
     def _p(name: str) -> str:
@@ -774,7 +782,7 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
         extension_sdk=extension_sdk, connector_registry=connector_registry, connectors=connectors,
         advisor=advisor, mcp_hub=mcp_hub,
         bus=bus, versions=versions, marketplace=marketplace, recommendation=recommendation,
-        workspace=workspace,
+        workspace=workspace, config=cfg,
         policy_profiles=policy_profiles, store=store, diagnostics=diagnostics, analytics=analytics,
         birth_summary=birth_summary,
         stores=[exec_store, belief_store, goal_store, audit_store, memory_repo, knowledge_repo,
@@ -789,8 +797,8 @@ def boot(*, workspace: str = ".mio", identity_name: str = "MIO", connect_ollama:
     )
 
     # --- Opsiyonel: MIO açılışta çalışacağı yerel çıkarım ortamını KENDİSİ hazırlar (varsayılan KAPALI) ---
-    _auto = prepare_inference if prepare_inference is not None \
-        else (os.environ.get("MIO_AUTO_INFERENCE", "").strip().lower() in ("1", "true", "yes", "on"))
+    # config'ten okunur (tek kaynak) — .env'deki MIO_AUTO_INFERENCE artık ETKİLİ (kök neden düzeltmesi).
+    _auto = prepare_inference if prepare_inference is not None else cfg.get_bool("MIO_AUTO_INFERENCE", False)
     if _auto:
         try:
             status = mio.local_inference.ensure_ready()   # güvenli işler otomatik; silme/kurulum onay bekler
