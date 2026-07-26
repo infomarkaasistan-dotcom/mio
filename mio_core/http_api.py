@@ -31,7 +31,9 @@ _INDEX = {
     "endpoints": {
         "GET /health": "sağlık özeti",
         "GET /readiness": "operasyonel hazırlık (200 ready / 503 not-ready)",
-        "GET /metrics": "tüm domain metrikleri",
+        "GET /metrics": "tüm domain metrikleri (JSON)",
+        "GET /metrics/prometheus": "Prometheus text exposition (scrape)",
+        "GET /metrics/otlp": "OTLP/HTTP-JSON metrics payload",
         "GET /domains": "domain listesi",
         "GET /domains/{name}/contract": "domain sözleşmesi",
         "GET /domains/{name}/stats": "domain metrikleri",
@@ -72,6 +74,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return (200 if r.get("ready") else 503), r
             if parts == ["metrics"]:
                 return 200, appservice.metrics(mio)
+            if parts == ["metrics", "prometheus"]:      # Prometheus scrape (text/plain)
+                return 200, appservice.prometheus_metrics(mio)
+            if parts == ["metrics", "otlp"]:            # OTLP/HTTP-JSON metrics payload
+                return 200, appservice.otlp_metrics(mio)
             if parts == ["domains"]:
                 return 200, appservice.list_domains(mio)
             if parts == ["events"]:
@@ -142,9 +148,14 @@ class _Handler(BaseHTTPRequestHandler):
         self._dispatch("POST")
 
     def _send(self, status: int, data: Any) -> None:
-        payload = json.dumps(data, ensure_ascii=False, default=str, sort_keys=True).encode("utf-8")
+        if isinstance(data, str):                   # Prometheus exposition vb. → text/plain
+            payload = data.encode("utf-8")
+            content_type = "text/plain; version=0.0.4; charset=utf-8"
+        else:
+            payload = json.dumps(data, ensure_ascii=False, default=str, sort_keys=True).encode("utf-8")
+            content_type = "application/json; charset=utf-8"
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)

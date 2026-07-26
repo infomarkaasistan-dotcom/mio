@@ -42,6 +42,7 @@ from mio_core.domains.autonomous_ops import AutonomousOperationsDomain, AutoOpsR
 from mio_core.domains.digital_twin import DigitalTwinDomain, DigitalTwinRepository
 from mio_core.domains.extension_sdk import ExtensionSDKDomain, ExtensionRepository
 from mio_core.connectors import Advisor, ConnectorManager, ConnectorRegistry
+from mio_core.monitoring import MonitoringAdapter
 from mio_core.domains.document_intelligence import DocumentIntelligenceDomain, DocumentRepository
 from mio_core.domains.execution import ExecutionDomain, ExecutionRepository
 from mio_core.domains.executive import ExecutiveDomain
@@ -212,6 +213,9 @@ class MIORuntime:
         self.connector_registry: ConnectorRegistry = components["connector_registry"]
         self.connectors: ConnectorManager = components["connectors"]
         self.advisor: Advisor = components["advisor"]
+        # Monitoring Adapter: çekirdek metriklerini Prometheus/OTLP'ye aktarır (çekirdek framework-bağımsız).
+        # self.metrics/self.readiness metodlarına bağlanır (lazy — yalnız çağrıldığında okur).
+        self.monitoring: MonitoringAdapter = MonitoringAdapter(self.metrics, readiness_fn=self.readiness)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]

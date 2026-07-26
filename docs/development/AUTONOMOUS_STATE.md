@@ -35,9 +35,18 @@
     HİÇ connector yok → her capability dürüstçe unavailable, sistem çalışır. appservice+CLI(connectors/capabilities/
     execute)+HTTP(GET /connectors,/capabilities; POST /capabilities/{cap}) AYNI yüzey. `mio_core/connectors/README.md`,
     `tests/test_connectors.py` (8). Tam süit **818**. Gerçek connector çekirdekte YOK (adapter'da).
-  - **SIRADAKİ: #4 Monitoring stack** — Prometheus/OpenTelemetry; mevcut `mio.metrics()`/StructuredFormatter/Tracer'ı
-    gerçek gözlem sistemine bağla (muhtemelen /metrics'i Prometheus text-format veren bir adapter + OTLP export).
-    Ayrıca: gerçek connector adapter'ları bağlama (SMTP/Ollama/Shell — resilience'a + doğal dile anlam), API ağ-auth.
+  - **✅ #4 Monitoring stack (Adapter) TAMAM** — kullanıcı direktifi: çekirdek yalnız metrik ÜRETİR, adapter dışa
+    AKTARIR (çekirdek framework-bağımsız). `mio_core/monitoring/`: **formats.py** (flatten_samples + render_prometheus
+    text-exposition v0.0.4 + to_otlp_metrics OTLP/HTTP-JSON) + **adapter.py** MonitoringAdapter (prometheus()/
+    otlp_metrics()/snapshot() + push_to_pushgateway PUT + export_otlp POST /v1/metrics + export_json; transport
+    enjekte edilebilir; hata GÖRÜNÜR Madde 27, çökmez). `mio.monitoring` (self.metrics/readiness'e lazy bağlı).
+    appservice+CLI(`prometheus`)+HTTP(`GET /metrics/prometheus` text/plain, `GET /metrics/otlp` JSON) AYNI yüzey;
+    `_send` metin desteği eklendi. stdlib-only (json+urllib). `docs/development/MONITORING.md`,
+    `tests/test_monitoring.py` (9). Tam süit **827**. Full OTLP-protobuf/OTel-SDK = AYRI adapter paketi (gelecek).
+  - **🎉 4 Interface katmanı da TAMAM (CLI/HTTP/Connector/Monitoring).** SIRADAKİ adaylar: gerçek connector adapter
+    bağlama (SMTP/Ollama/Shell → resilience'a + doğal dile anlam; ilk somut dış entegrasyon), API ağ-auth (token/
+    mTLS), Prometheus/Grafana/otelcol ile canlı deploy doğrulama, ya da Resilience'ı gerçek connector çağrılarına
+    sarma. Kullanıcı yönlendirmesi bekleniyor.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

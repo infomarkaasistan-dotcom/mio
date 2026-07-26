@@ -116,8 +116,20 @@ def execute_capability(mio, capability: str, request: Any, *, actor: str = "owne
     return mio.connectors.execute(capability, request, actor=actor, user_approved=user_approved)
 
 
+# ---- Monitoring yüzeyi — CLI+HTTP ortak ----
+def prometheus_metrics(mio) -> str:
+    """Prometheus text exposition (scrape). Çekirdek metriklerini Monitoring Adapter formatlar."""
+    return mio.monitoring.prometheus()
+
+
+def otlp_metrics(mio) -> dict[str, Any]:
+    """OTLP/HTTP-JSON metrics payload."""
+    return mio.monitoring.otlp_metrics()
+
+
 __all__ = [
     "NotFound", "BadRequest", "PUBLIC_DOMAINS",
     "list_domains", "domain_contract", "domain_stats", "metrics", "readiness", "health", "events", "call",
     "connectors_overview", "capabilities_catalog", "execute_capability",
+    "prometheus_metrics", "otlp_metrics",
 ]

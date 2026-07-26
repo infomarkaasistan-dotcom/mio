@@ -8,7 +8,8 @@ Komutlar:
   domains                         → tüm domainleri + sözleşme versiyonu + kısa açıklama listeler
   contract <domain>               → domainin public sözleşmesini gösterir (operasyonlar/events/invariantlar)
   stats <domain>                  → domainin metriklerini gösterir
-  metrics                         → tüm domainlerin birleşik metrik snapshot'ı
+  metrics                         → tüm domainlerin birleşik metrik snapshot'ı (JSON)
+  prometheus                      → Prometheus text exposition (Monitoring Adapter)
   readiness | health              → operasyonel hazırlık / sağlık (readiness ready değilse çıkış kodu 1)
   events [N]                      → son N event bus olayı (varsayılan 20)
   call <domain> <op> [json]       → bir domain operasyonunu reflektif çağırır (json = {"actor":"owner",...})
@@ -53,6 +54,8 @@ def run_command(mio, argv: list) -> tuple[int, str]:
             return 0, _fmt(appservice.list_domains(mio))
         if name == "metrics":
             return 0, _fmt(appservice.metrics(mio))
+        if name == "prometheus":
+            return 0, appservice.prometheus_metrics(mio)     # zaten metin — biçimlemeye gerek yok
         if name == "readiness":
             r = appservice.readiness(mio)
             return (0 if r.get("ready") else 1), _fmt(r)
