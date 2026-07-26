@@ -10,6 +10,16 @@
 - ✅ **Faz 5 (Distributed & Ecosystem) TAMAM** (roadmap #32-40, Domain 35-43: Model Mgmt/Multi-Agent/Marketplace/
   Knowledge Marketplace/Federation/Distributed Exec/Autonomous Ops/Simulation-Digital Twin/Extension SDK).
 - 🎉 **TÜM 43 ANA DOMAIN TAMAM (STABLE).** Constitution roadmap'inin tamamı işlendi.
+- **INTERFACE KATMANI (kullanıcı sırası: CLI → HTTP/API → Connector → Monitoring stack):**
+  - **✅ #1 CLI TAMAM** — `mio_core/cli.py` + `python -m mio_core` (etkileşimli kabuk + tek-atış). Komutlar:
+    `domains/contract/stats/metrics/readiness/health/events` + **reflektif `call <domain> <op> {json}`** (herhangi
+    domain operasyonunu terminalden çağırır; kwargs; domain authz yürürlükte; özel metod yasak). `__main__`
+    yönlendirme: readiness/health/metrics→ops probe (Docker HEALTHCHECK backward-compat), diğer→CLI. Deterministik/
+    LLM-bağımsız. `docs/development/CLI.md`, `tests/test_cli.py` (10). Doğal dil = LLM danışman bağlanınca (connector).
+  - **SIRADAKİ: #2 HTTP/API katmanı** — domainleri dışa açan REST/servis (deterministik, authz'li; muhtemelen
+    stdlib `http.server` ile bağımlılıksız ya da kullanıcı onayıyla hafif framework). Sonra #3 Connector (e-posta/
+    takvim/dosya/mesajlaşma — gerçek dış entegrasyon; resilience'a da anlam kazandırır), #4 Monitoring stack
+    (Prometheus/OpenTelemetry; mevcut mio.metrics()/StructuredFormatter/Tracer'ı gerçek gözlem sistemine bağla).
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her
