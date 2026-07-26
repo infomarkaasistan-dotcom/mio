@@ -327,6 +327,21 @@ class MIORuntime:
         ready = all(c["ok"] for c in checks.values())
         return {"ready": ready, "checks": checks}
 
+    def metrics(self) -> dict:
+        """Birleşik metrik snapshot'ı (Observability): tüm sözleşmeli domainlerin `stats()`'ı + event bus
+        sağlığı, tek deterministik görünümde. İş mantığı yok — makine-okur toplama/dashboard için."""
+        domains: dict[str, Any] = {}
+        for name in _READINESS_DOMAINS:
+            obj = getattr(self, name, None)
+            if obj is not None and hasattr(obj, "stats"):
+                try:
+                    domains[name] = obj.stats()
+                except Exception as exc:  # noqa: BLE001 — okunamayan stats görünür kılınır (dürüst)
+                    domains[name] = {"error": str(exc)[:120]}
+        bus_health = {"subscriber_errors": self.bus.subscriber_errors()} if self.bus is not None else {}
+        return {"domain_count": len(domains), "domains": domains, "event_bus": bus_health,
+                "closed": self._closed}
+
     def observability(self) -> dict:
         """Tek üretim-görünümü: sağlık + diagnostics + analytics + MCP store + son olaylar (Area 6).
         İş mantığı yok — yalnız gözlem (Dashboard bunu subscribe/okur)."""

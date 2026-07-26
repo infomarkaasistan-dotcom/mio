@@ -15,10 +15,13 @@ Mevcut Domain API'leri, Capability Contract'ları ve backward-compatibility KORU
 | 1 | **Fitness Functions** (mimari değişmezleri otomatik test) | ✅ **TAMAM** | `tests/test_fitness_functions.py` — 218 kontrol yeşil |
 | 2 | **Operational Readiness** (readiness probe + graceful shutdown + config validation) | ✅ **TAMAM** | `mio.readiness()` + idempotent `mio.close()` raporu; `tests/test_operational_readiness.py` — 7 yeşil |
 | 3 | Resilience yayılımı (retry/backoff/circuit breaker → connector çağrıları) | ⏳ **ERTELENDİ** | Gerçek adapter yokken spekülatif (tüm connector'lar absent → yalnız test-double sarar). Gerçek connector bağlanınca yapılacak |
-| 4 | **CI/CD pipeline** (suite + fitness + readiness gate'leri) | ✅ **TAMAM (taslak)** | `.github/workflows/ci.yml` (matris 3.10-3.12) + `docs/development/CI.md`; öz-doğrulama `test_ci_workflow_references_real_gates`. **Aktif değil** — repo git değil (aktivasyon adımları CI.md'de) |
-| 5 | Load / Soak testing + performans bütçeleri | ⏳ planlı | ölçülmüş throughput/latency raporu |
-| 6 | HA / Deployment hardening | ⏳ planlı | — |
-| 7 | Recovery / backup-restore drills | ⏳ planlı | WAL yedek/geri-yükleme senaryosu |
+| 4 | **CI/CD pipeline** (suite + fitness + readiness gate'leri) | ✅ **TAMAM + AKTİF** | `.github/workflows/ci.yml` (matris 3.10-3.12); GitHub Actions'ta **yeşil** (conclusion=success). `docs/development/CI.md` |
+| 5 | **Load / Soak testing** | ✅ **TAMAM** | `tests/test_load_soak.py` — 5 yeşil (eşzamanlı yazma bütünlüğü + 1500-iter soak + boot/close döngüsü). **Eşzamanlılık bulgusu** kayıtlı (↓) |
+| 6 | **Recovery / backup-restore** | ✅ **TAMAM** | `tests/test_recovery.py` — 4 yeşil (crash-recovery + hot-backup API + point-in-time + WAL-checkpoint soğuk-kopya) |
+| 7 | **Observability** (structured logging + tracing + metrics) | ✅ **TAMAM** | `mio_core/platform/observability.py` (JSON log+redaction, nested Tracer) + `mio.metrics()`; `tests/test_observability.py` — 7 yeşil |
+| 8 | **Deployment artefaktları + monitoring probe** | ✅ **TAMAM (artefakt)** | `mio_core/ops.py` (`python -m mio_core readiness/health/metrics`) + `Dockerfile` (HEALTHCHECK) + `docs/development/DEPLOYMENT.md`; `tests/test_ops_entrypoint.py` — 7 yeşil. **Gerçek deploy = kullanıcı altyapı kararı** |
+| 3 | Resilience yayılımı | ⏳ **ERTELENDİ** | Gerçek adapter yokken spekülatif; connector bağlanınca |
+| — | HTTP/API katmanı · HA/replica · canlı monitoring stack | ⏳ planlı | Dışa açık servis + cluster deploy (dürüst kapsam: henüz yok) |
 
 > **Sıralama notu (dürüstlük):** Resilience kullanıcı önceliğinde #1'di; ancak tüm connector'lar şu an *absent*
 > (gerçek adapter yalnız testlerde enjekte) olduğundan resilience'ı 15 domaine yaymak **çalışma-zamanı faydası
@@ -64,6 +67,28 @@ gate** → **tam süit**. Matris: Python 3.10/3.11/3.12. Çekirdek stdlib-only �
 gerektirir (uv gerekmez). `docs/development/CI.md`: gate'ler + lokal reçete + **aktivasyon** (git init/commit/push)
 + kapsam/dürüstlük. Öz-doğrulama: `test_ci_workflow_references_real_gates` CI'nin ölü dosyaya işaret etmesini
 yakalar. **Aktif değil:** repo git deposu değil; aktivasyon = kullanıcı kararı (dış-yüze işlem).
+
+## 5 — Load / Soak (TAMAM) + Eşzamanlılık bulgusu
+`tests/test_load_soak.py` (5 test) gerçek runtime'a karşı: eşzamanlı yazmada **veri bütünlüğü** (kayıp yok),
+sürekli 1500-iterasyon soak sonrası **readiness kararlı**, 4× boot/close döngüsünde **temiz kapanış**, ve
+thread-başına-bağlantıyla eşzamanlı okuma güvenli.
+
+### ⚠️ Eşzamanlılık bulgusu (load-testing'in ürettiği GERÇEK bilgi — dürüstçe kaydedilmiştir)
+**Bulgu:** Repository katmanı **yazmaları** `threading.Lock` ile serileştirir → veri bütünlüğü eşzamanlı yazmada
+korunur (kanıtlandı). Ancak **okumalar lock-free**'dir ve tüm thread'ler tek **paylaşılan** `sqlite3.Connection`
+kullanır. `sqlite3.Connection` çok-thread'li eşzamanlı erişim için güvenli olmadığından, eşzamanlı yazma **veya
+eşzamanlı okuma** sırasında lock-free bir okuma geçici olarak hata verebilir (`fetchone()` None).
+
+**Kapsam / şiddet:** Bu bir **veri bütünlüğü** sorunu DEĞİL — dosya asla bozulmaz, yazmalar doğru iner. Bir
+**okuma-eşzamanlılığı** sınırı. MIO'nun mevcut akışı (senkron EventBus, domain'ler sıralı çağrılır) tek repo'ya
+çok-thread'li eşzamanlı erişim ÜRETMEZ → bu **latent** bir sınırdır, aktif bug değil. Load testing gelecekteki
+ölçeklenme için sınırı ortaya çıkardı.
+
+**Remediasyon (gerektiğinde):** (a) okumaları da mevcut `self._lock` ile sar (basit, okumaları serileştirir),
+veya (b) **thread-başına ayrı bağlantı** (WAL çoklu-okur + tek-yazar destekler — `test_concurrent_readers_with_
+own_connections_are_safe` bunu kanıtlar), veya (c) bağlantı havuzu. Şu an uygulanmadı çünkü mevcut kullanım
+desenini etkilemiyor ve 40+ repository'ye dokunmak orantısız olurdu; gerçek çok-thread'li repo erişimi
+gerektiğinde (b) tercih edilmelidir.
 
 ## Sıradaki adaylar
 - **Load/Soak** — çok-thread'li repository yazma + boot/close döngüsü altında throughput/latency ölçümü (gerçek

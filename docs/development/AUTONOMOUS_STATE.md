@@ -17,15 +17,26 @@
   - **✅ #2 Operational Readiness TAMAM** (`mio.readiness()` deterministik self-check + idempotent `mio.close()`
     görünür-hata raporu — Madde 27; `tests/test_operational_readiness.py` — 7 yeşil). readiness: event bus/store/
     resilience/**workspace yazılabilirliği (config validation)**/tüm domain contract'ları; kapanınca ready=False.
-  - **✅ #4 CI/CD TAMAM (taslak)** — `.github/workflows/ci.yml` (matris py3.10-3.12; fitness gate→readiness gate→
-    tam süit) + `docs/development/CI.md` (lokal reçete + aktivasyon + kapsam) + öz-doğrulama testi. **Aktif değil:**
-    repo git deposu DEĞİL → aktivasyon (git init/commit/push) kullanıcı kararı (CI.md'de adımlar).
-  - **#3 Resilience ERTELENDİ** (dürüst gerekçe): tüm connector'lar absent → yaymak spekülatif; gerçek adapter
-    bağlanınca yapılacak. **SIRADAKİ adaylar:** Load/Soak (şu an ölçülebilir), Recovery (WAL backup-restore),
-    gerçek connector bağlama (resilience'a anlam kazandırır), ya da CI aktivasyonu (git init).
-  - Tam süit: **769 test** (543 domain + 219 fitness/CI + 7 readiness). **Kural: maturity iddiası kanıtsız
-    yükseltilmez** ([[feedback_maturity_label_honesty]]); bu çıktılar "mimari borç yok + operasyonel öz-farkındalık +
-    regresyon ağı" kanıtlar, Production Ready YAPMAZ (yük/HA/gerçek-CI-koşusu hâlâ eksik).
+  - **✅ #4 CI/CD TAMAM + AKTİF** — `git init`+commit+**GitHub'a push** (infomarkaasistan-dotcom/mio); Actions
+    **YEŞİL** (conclusion=success, py3.10-3.12 matris). `.env` güvenle .gitignore'landı (boştu, sır sızmadı).
+    `docs/development/CI.md`.
+  - **✅ #5 Load/Soak TAMAM** — `tests/test_load_soak.py` (5): eşzamanlı yazma bütünlüğü + 1500-iter soak +
+    boot/close döngüsü. **⚠️ Eşzamanlılık bulgusu** (dürüstçe kayıtlı): repository okumaları lock-free + paylaşılan
+    sqlite3 bağlantısı → çok-thread'li eşzamanlı okuma güvenli değil (LATENT sınır, veri bütünlüğü DEĞİL; MIO
+    mevcut akışı bunu üretmez; remediasyon=thread-başına bağlantı, test ile kanıtlandı). Bkz. PLATFORM_HARDENING.md.
+  - **✅ #6 Recovery TAMAM** — `tests/test_recovery.py` (4): crash-recovery (WAL dayanıklılık) + hot-backup API +
+    point-in-time snapshot + WAL-checkpoint soğuk-kopya.
+  - **✅ #7 Observability TAMAM** — `mio_core/platform/observability.py` (StructuredFormatter JSON+sır-maskeleme,
+    nested Tracer trace_id/parent/süre/hata durumu) + `mio.metrics()` birleşik toplayıcı; `test_observability.py` (7).
+  - **✅ #8 Deployment artefaktları TAMAM** — `mio_core/ops.py`+`__main__.py` (`python -m mio_core readiness/health/
+    metrics`, exit-kodlu monitoring probe) + `Dockerfile` (HEALTHCHECK=readiness) + `docs/development/DEPLOYMENT.md`;
+    `test_ops_entrypoint.py` (7). **Gerçek deploy YAPILMADI** = kullanıcı altyapı kararı (dürüst).
+  - **#3 Resilience ERTELENDİ** (connector'lar absent). Tam süit: **792 test**. **SIRADAKİ adaylar:** dışa açık
+    **HTTP/API katmanı** (domainleri servis olarak sunar — en büyük eksik), **gerçek connector bağlama**
+    (resilience'a anlam), HA/replica, canlı monitoring stack.
+  - **Kural: maturity iddiası kanıtsız yükseltilmez** ([[feedback_maturity_label_honesty]]); bu çıktılar "mimari
+    borç yok + operasyonel öz-farkındalık + regresyon ağı + dayanıklılık/recovery + gözlemlenebilirlik + deploy
+    artefaktı" kanıtlar. **HÂLÂ Production Ready DEĞİL:** dışa açık API yok, HA yok, gerçek connector/deploy yok.
 - Kural: `NEXT_STEPS.md` "Her yeni Domain için ZORUNLU" + Freeze Policy (STABLE ≠ Production). Placeholder YOK.
 
 ## ✅ SON TAMAMLANAN
