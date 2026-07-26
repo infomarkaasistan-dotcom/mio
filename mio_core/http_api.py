@@ -159,6 +159,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             if len(parts) == 3 and parts[0] == "workflow" and parts[2] == "run":
                 approve = query.get("approve", ["false"])[0].lower() in ("1", "true", "yes")
                 return 200, appservice.workflow_run(mio, parts[1], approve=approve)
+            # POST /converse  gövde={text} — doğal dil → Executive orkestratörü (aynı DTO; Dashboard da kullanır)
+            if parts == ["converse"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.converse(mio, b.get("text", ""))
             # POST /conversation/receive  gövde={user_handle, text, platform_ref}
             if parts == ["conversation", "receive"]:
                 b = body if isinstance(body, dict) else {}

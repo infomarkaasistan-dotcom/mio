@@ -234,6 +234,7 @@ class MIORuntime:
         # Açılışta otomatik hazırlık sonucu (prepare_inference/MIO_AUTO_INFERENCE açıksa dolar; aksi None).
         self.inference_status: Optional[dict[str, Any]] = None
         self._http_handle = None             # gömülü HTTP sunucusu yaşam-döngüsü (lazy; CLI'dan yönetilir)
+        self._conversational = None          # doğal dil orkestratörü (lazy; konuşma bağlamı tutar)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -330,6 +331,14 @@ class MIORuntime:
             from mio_core.platform.http_lifecycle import HTTPServerHandle
             self._http_handle = HTTPServerHandle(self)
         return self._http_handle
+
+    @property
+    def conversational(self):
+        """Doğal dil orkestratörü (Türkçe intent → mevcut appservice işlemleri). Lazy; konuşma bağlamı tutar."""
+        if self._conversational is None:
+            from mio_core.conversational import ConversationalOrchestrator
+            self._conversational = ConversationalOrchestrator(self)
+        return self._conversational
 
     def readiness(self) -> dict:
         """Operational Readiness self-check (DETERMİNİSTİK; dış adapter gerektirmez).

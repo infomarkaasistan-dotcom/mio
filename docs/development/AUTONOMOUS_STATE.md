@@ -131,12 +131,19 @@
     CapabilityIntent taşır. Executive köprüsü `appservice.workflow_run` (DAG'ı yürütür, checkpoint/resume, human-
     approval Madde 24). `mio.workflow`. CLI `workflow`, HTTP /workflow. `tests/test_workflow_domain.py` (8). Tam
     süit **954+2skip** (46 domain, domain_count 27).
-  - **🎉 46 domain + Presentation/Conversation/Workflow + Media adapter + server/workspace CLI + 2.nesil analiz
-    raporu.** SIRADAKİ (yeni büyük direktif — Unified Product Experience): Conversational CLI (Türkçe intent→
-    Executive→domain pipeline, conversational memory), Business Workspace (izole business state), Onboarding,
-    CEO experience, Agent management, Dashboard. KURAL: mevcut sistemleri ENTEGRE et (no second workflow/task/
-    memory/registry), ürün deneyimi olarak sun, LLM danışman, Executive karar. Ayrıca: Y1 Learning trajectory,
-    Y2 Reasoning verifier; live watch; API ağ-auth.
+  - **✅ Conversational CLI (Unified Product Experience #1) TAMAM** — `mio_core/conversational.py`
+    ConversationalOrchestrator: doğal dil (Türkçe) → DETERMİNİSTİK intent → mevcut appservice işlemleri. **YENİ
+    MİMARİ YOK** — orkestrasyon katmanı (appservice üzerine); iş mantığı domainlerde. Diacritic-duyarsız
+    (yardım==yardim, _TR_MAP), kök/önek eşleşme (mesaj→mesajlari, kapanış \b yok — Türkçe sondan-eklemeli),
+    konuşma bağlamı (referans 'devam et'→önceki niyet), asla çökmez. LLM danışman (unknown→advisor yorumu, karar
+    VERMEZ). 12 intent (greeting/status/diagnose/hardware/models/present/conversation/workflow/connect/mcp/config/
+    help). CEO-tarzı Türkçe yanıt. `mio.conversational` lazy; appservice.converse; CLI REPL doğal-dil yönlendirme
+    (komut değilse→ask) + `ask` komutu + KNOWN_COMMANDS; HTTP POST /converse (aynı DTO). `tests/test_conversational.py`
+    (27). İki mod: developer (mevcut komutlar) + conversational (CEO) AYNI backend. Tam süit **981+2skip**.
+  - **🎉 MIO artık doğal dille konuşuluyor** ("durum nedir"/"sunum hazırla"/"iş akışları") — tek OS deneyimi.
+    SIRADAKİ (Unified Product Experience kalan): Business Workspace (izole business state — mevcut domainleri
+    scope'la, yeni registry YOK), Onboarding (ilk açılış 5dk), CEO experience (intent→plan→delegate→execute→report),
+    Agent management, Dashboard DTO. Ayrıca yol haritası Y1 Learning trajectory, Y2 Reasoning verifier.
 - **FAZ: Production Hardening (tek platform fazı) — SÜRÜYOR** (kullanıcı onayladı). İzleme dosyası:
   `docs/development/PLATFORM_HARDENING.md` (öncelik tablosu + her kalemin kanıtı).
   - **✅ #1 Fitness Functions TAMAM** (`tests/test_fitness_functions.py` — 218 kontrol; mimari değişmezleri her

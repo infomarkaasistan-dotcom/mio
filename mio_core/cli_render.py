@@ -191,12 +191,20 @@ def _r_mcp_doctor(ui: UI, d: dict) -> str:
     return "\n".join(out)
 
 
+def _r_converse(ui: UI, d: dict) -> str:
+    """CEO yanıtı — doğal dil, sakin. Executive konuşuyormuş gibi."""
+    who = ui.badge("MIO Executive", "accent")
+    lines = [f"  {who}", "  " + d.get("response", "").replace("\n", "\n  ")]
+    return "\n".join(lines)
+
+
 _RENDERERS = {
     "domains": _r_domains, "hardware": _r_hardware, "connectors": _r_connectors,
     "capabilities": _r_capabilities, "models": _r_models, "diagnose": _r_diagnose,
     "executive": _r_executive, "inference_ensure": _r_inference_ensure,
     "capability_exec": _r_capability_exec,
     "mcp_list": _r_mcp_list, "mcp_status": _r_mcp_status, "mcp_doctor": _r_mcp_doctor,
+    "converse": _r_converse,
 }
 
 

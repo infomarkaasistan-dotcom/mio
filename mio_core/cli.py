@@ -24,6 +24,8 @@ from mio_core.cli_ui import UI
 
 # Kategorili yardım (executive-öncelikli).
 _HELP_SECTIONS = [
+    ("Konuşma (doğal dil)", [("<Türkçe yaz>", "doğal dille konuş: 'durum nedir', 'sunum hazırla', 'iş akışları'"),
+                             ("ask <metin>", "açıkça doğal dil sorusu sor (CEO yanıtı)")]),
     ("Executive", [("executive", "operasyonel özet: güven, öneriler, brain/connector durumu"),
                    ("diagnose", "tam sağlık denetimi + Executive Score"),
                    ("readiness / health", "operasyonel hazırlık / sağlık")]),
@@ -69,6 +71,16 @@ _HELP_SECTIONS = [
 ]
 
 
+# Bilinen geliştirici komutları — REPL'de ilk sözcük buysa developer mode; değilse doğal dil (CEO) modu.
+KNOWN_COMMANDS = frozenset({
+    "help", "?", "h", "ask", "söyle", "sor", "domains", "executive", "diagnose", "hardware", "models",
+    "connectors", "capabilities", "metrics", "prometheus", "readiness", "health", "events", "contract",
+    "stats", "call", "execute", "inference", "mcp", "present", "presentation", "chat", "conversation",
+    "conv", "workflow", "wf", "connect", "config", "workspace", "server", "serve", "http", "shell",
+    "quit", "exit", "q",
+})
+
+
 def _fmt(obj: Any) -> str:
     if isinstance(obj, str):
         return obj
@@ -101,6 +113,8 @@ def dispatch(mio, argv: list) -> tuple[int, str, Any]:
     try:
         if name in ("help", "?", "h"):
             return 0, "help", None
+        if name in ("ask", "söyle", "sor"):           # açık doğal-dil komutu
+            return 0, "converse", appservice.converse(mio, " ".join(rest))
         if name == "domains":
             return 0, "domains", appservice.list_domains(mio)
         if name == "executive":
@@ -395,6 +409,7 @@ def startup_sequence(mio, ui: UI, *, workspace: str) -> None:
         pass
     ui.out(ui.rule())
     ui.out("  " + ui.badge("Executive Ready", "ok"))
+    ui.out(ui.note("Doğal dille konuşabilirsiniz: 'durum nedir', 'sunum hazırla', 'yardım'.", "mute"))
     ui.out("")
 
 
@@ -414,12 +429,16 @@ def interactive(mio, *, workspace: str = ".mio") -> int:
         if line in ("quit", "exit", "q"):
             ui.out(ui.note("Executive kapanıyor.", "mute"))
             return 0
-        try:
-            argv = shlex.split(line)
-        except ValueError as exc:
-            ui.out(ui.note(f"ayrıştırma hatası: {exc}", "err"))
-            continue
-        _code, out = run_command(mio, argv, style="rich", ui=ui)
+        first = line.split()[0].lower()
+        if first in KNOWN_COMMANDS:                   # geliştirici modu (mevcut komutlar)
+            try:
+                argv = shlex.split(line)
+            except ValueError as exc:
+                ui.out(ui.note(f"ayrıştırma hatası: {exc}", "err"))
+                continue
+            _code, out = run_command(mio, argv, style="rich", ui=ui)
+        else:                                         # doğal dil (CEO) modu — Executive orkestratörü
+            _code, out = run_command(mio, ["ask", line], style="rich", ui=ui)
         if out:
             ui.out(out)
 

@@ -139,6 +139,15 @@ def config_diagnostics(mio) -> dict[str, Any]:
     return diag
 
 
+# ---- Conversational yüzeyi (doğal dil → mevcut işlemler; CLI/UI/Voice ortak) ----
+def converse(mio, text: str, *, actor: str = "owner") -> dict[str, Any]:
+    """Doğal dil isteğini Executive orkestratörüne verir → mevcut appservice işlemlerine yönlendirir.
+
+    Bu bir orkestrasyon yüzeyidir (yeni mimari değil); iş mantığı domainlerde/Executive'te. LLM danışman, karar
+    verici değil. {intent, response, data} döner (Dashboard aynı DTO'yu kart/balon olarak render eder)."""
+    return mio.conversational.handle(text, actor=actor)
+
+
 # ---- HTTP server lifecycle + Workspace yüzeyi (CLI/UI ortak) ----
 def server_start(mio, *, host: str = "127.0.0.1", port: int = 8080) -> dict[str, Any]:
     return mio.http_server.start(host=host, port=int(port))
@@ -457,4 +466,5 @@ __all__ = [
     "conversation_moderate",
     "server_start", "server_stop", "server_status", "workspace_info",
     "workflow_create", "workflow_list", "workflow_get", "workflow_plan", "workflow_run",
+    "converse",
 ]
