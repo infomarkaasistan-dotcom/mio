@@ -45,8 +45,13 @@ def test_diacritic_insensitive(mio):
 # ---- yönlendirme mevcut appservice'e delege eder (yeni mimari yok) ----
 def test_routes_to_existing_services(mio):
     r = appservice.converse(mio, "durum nedir")
-    assert r["intent"] == "status" and "System Ready" in r["response"]
-    assert r["data"]["executive_score"] == appservice.executive_summary(mio)["executive_score"]
+    exe = appservice.executive_summary(mio)
+    # ORTAM-BAĞIMSIZ: intent + response Executive özetini taşır. Verdict metni ("System Ready"/"Degraded"/
+    # "Attention Needed") skora→ortama bağlıdır (donanımsız CI'de düşük skor) — string-match KIRILGAN; onun
+    # yerine verdict'in response'ta olduğunu doğrula (hangi verdict olursa olsun).
+    assert r["intent"] == "status"
+    assert exe["system_confidence"] in r["response"]
+    assert r["data"]["executive_score"] == exe["executive_score"]
     d = appservice.converse(mio, "sağlık")
     assert d["intent"] == "diagnose" and "Executive Score" in d["response"]
 
