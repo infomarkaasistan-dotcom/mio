@@ -476,6 +476,19 @@ def inference_ensure_ready(mio, *, approve=frozenset(), auto_pull: bool = True,
     return mio.local_inference.ensure_ready(approve=frozenset(approve), auto_pull=auto_pull, run_test=run_test)
 
 
+# ---- MCP Kataloğu yüzeyi ("tüm MCP'leri kur; kullanıcı yalnız yetki/anahtar verir") ----
+def mcp_install_catalog(mio, *, actor: str = "owner") -> dict[str, Any]:
+    """Bilinen MCP sunucularını UNTRUSTED kaydeder (idempotent; Madde 24 — yetki kullanıcıya ait)."""
+    from mio_core import mcp_catalog
+    return mcp_catalog.install_catalog(mio, actor=actor)
+
+
+def mcp_catalog_status(mio, *, actor: str = "owner") -> list[dict[str, Any]]:
+    """Katalog + canlı kayıt durumu (arayüz için): her MCP'nin gerekli anahtarları, risk, trust, enabled."""
+    from mio_core import mcp_catalog
+    return mcp_catalog.catalog_status(mio, actor=actor)
+
+
 # ---- CEO Experience yüzeyi (intent→plan→delegate→execute→report) — CLI/HTTP/conversational ortak ----
 def ceo_direct(mio, goal_text: str, *, horizon_days: int = 30, steps: Optional[list] = None,
                actor: str = "owner") -> dict[str, Any]:
@@ -534,4 +547,5 @@ __all__ = [
     "converse", "business_list", "business_create", "business_get", "business_delete", "business_stats",
     "ceo_direct", "ceo_delegate", "ceo_report",
     "agent_list", "agent_register", "agent_tasks", "agent_task_approve", "agent_stats",
+    "mcp_install_catalog", "mcp_catalog_status",
 ]

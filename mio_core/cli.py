@@ -565,6 +565,10 @@ def main(argv: Optional[list] = None) -> int:
             return interactive(mio, workspace=workspace)
         if argv and argv[0] in ("serve", "http", "app", "start"):
             from mio_core.http_api import serve
+            try:                                       # açılışta MCP kataloğunu kur (idempotent; UNTRUSTED)
+                appservice.mcp_install_catalog(mio)
+            except Exception:  # noqa: BLE001 — katalog kurulamazsa uygulama yine açılır (görünür değil, kritik değil)
+                pass
             url = f"http://{host}:{port}"
             # 'app'/'start' → kullanıcı dostu: sunucuyu başlat + tarayıcıyı otomatik aç
             if argv[0] in ("app", "start"):

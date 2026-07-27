@@ -153,6 +153,7 @@ WEBAPP_HTML = r"""<!doctype html>
       <button data-view="chat" class="active"><span class="ic">💬</span> Sohbet</button>
       <button data-view="panel"><span class="ic">📊</span> Panel</button>
       <button data-view="biz"><span class="ic">🏢</span> İşletmeler</button>
+      <button data-view="conn"><span class="ic">🔌</span> Bağlantılar</button>
     </div>
     <div class="sidefoot"><span id="statusDot" class="dot"></span><span id="statusText">bağlanıyor…</span></div>
   </aside>
@@ -187,6 +188,9 @@ WEBAPP_HTML = r"""<!doctype html>
 
     <!-- İŞLETMELER -->
     <div class="view hidden" id="view-biz"></div>
+
+    <!-- BAĞLANTILAR -->
+    <div class="view hidden" id="view-conn"></div>
   </main>
 </div>
 
@@ -329,17 +333,61 @@ async function renderBiz(){
   v.appendChild(sec);
 }
 
+/* ---------------- bağlantılar (MCP + servisler) ---------------- */
+const RISK={low:["Düşük","var(--ok)"],medium:["Orta","var(--warn)"],high:["Yüksek","var(--err)"]};
+async function renderConn(){
+  const v=$("#view-conn"); v.innerHTML="";
+  const intro=el("div","section");
+  intro.appendChild(el("h3","Bağlantılar — MCP & Servisler"));
+  intro.appendChild(el("div","rs","MIO tüm MCP sunucularını kurdu. Kullanmak istediğine <b>Yetki ver</b>. "+
+    "API anahtarı gerekiyorsa, aşağıda yazan anahtarı proje klasöründeki <b>.env</b> dosyana ekle, sonra MIO'yu yeniden başlat."));
+  v.appendChild(intro);
+  const r=await api("/mcp/catalog");
+  if(!r.ok){v.appendChild(el("div","empty","Katalog yüklenemedi."));return;}
+  const sec=el("div","section");
+  (r.data||[]).forEach(m=>{
+    const row=el("div","row"); row.style.alignItems="flex-start";
+    const t=el("div"); t.style.flex="1";
+    t.appendChild(el("div","rt",esc(m.name)));
+    t.appendChild(el("div","rs",esc(m.description||"")));
+    if((m.needs_keys||[]).length){
+      const k=el("div","rs"); k.style.marginTop="6px"; k.style.color="var(--accent)";
+      k.innerHTML="🔑 Gerekli anahtar: "+m.needs_keys.map(x=>`<code>${esc(x)}</code>`).join(", ");
+      t.appendChild(k);
+    }
+    row.appendChild(t);
+    const right=el("div"); right.style.textAlign="right"; right.style.display="flex";
+    right.style.flexDirection="column"; right.style.gap="6px"; right.style.alignItems="flex-end";
+    const rk=RISK[m.risk]||RISK.low;
+    const rb=el("div","badge","Risk: "+rk[0]); rb.style.color=rk[1]; right.appendChild(rb);
+    const enabled=m.enabled||m.trust_level==="trusted";
+    if(enabled){ const e=el("div","badge","✓ Etkin"); e.style.color="var(--ok)"; e.style.borderColor="var(--ok)"; right.appendChild(e);}
+    else{
+      const btn=el("button","btn","Yetki ver"); btn.style.padding="8px 14px"; btn.style.fontSize="13px";
+      btn.onclick=async()=>{
+        btn.disabled=true; btn.textContent="…";
+        const rr=await api("/mcp/"+m.server_id+"/trust","POST",{level:"trusted"});
+        if(rr.ok){renderConn();}else{btn.disabled=false;btn.textContent="Yetki ver";alert("Yetki verilemedi");}
+      };
+      right.appendChild(btn);
+    }
+    row.appendChild(right); sec.appendChild(row);
+  });
+  v.appendChild(sec);
+}
+
 /* ---------------- görünüm yönetimi ---------------- */
 function show(view){
-  ["chat","panel","biz"].forEach(x=>{
+  ["chat","panel","biz","conn"].forEach(x=>{
     $("#view-"+x).classList.toggle("hidden",x!==view);
   });
   $("#composer").classList.toggle("hidden",view!=="chat");
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
-  $("#viewTitle").textContent={chat:"Sohbet",panel:"Panel",biz:"İşletmeler"}[view];
+  $("#viewTitle").textContent={chat:"Sohbet",panel:"Panel",biz:"İşletmeler",conn:"Bağlantılar"}[view];
   $("#side").classList.remove("open");
   if(view==="panel")renderPanel();
   if(view==="biz")renderBiz();
+  if(view==="conn")renderConn();
 }
 
 /* ---------------- onboarding ---------------- */

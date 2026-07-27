@@ -121,6 +121,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.business_get(mio, parts[1])
             if parts == ["ceo", "report"] or parts == ["dashboard"]:
                 return 200, appservice.ceo_report(mio)
+            if parts == ["mcp", "catalog"]:
+                return 200, appservice.mcp_catalog_status(mio)
+            if parts == ["connectors", "status"]:
+                return 200, appservice.connectors_overview(mio)
             if parts == ["agents"]:
                 return 200, appservice.agent_list(mio)
             if parts == ["agents", "tasks"]:
@@ -196,6 +200,20 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             # POST /agents/{task_id}/approve — yüksek-risk görev onayı (Madde 24)
             if len(parts) == 3 and parts[0] == "agents" and parts[2] == "approve":
                 return 200, appservice.agent_task_approve(mio, parts[1])
+            # POST /mcp/install-catalog — bilinen MCP'leri kaydet (idempotent)
+            if parts == ["mcp", "install-catalog"]:
+                return 200, appservice.mcp_install_catalog(mio)
+            # POST /mcp/{id}/trust  gövde={level} — kullanıcı yetki verir (Madde 24); trusted ise etkinleştir
+            if len(parts) == 3 and parts[0] == "mcp" and parts[2] == "trust":
+                b = body if isinstance(body, dict) else {}
+                level = b.get("level", "trusted")
+                res = appservice.mcp_trust(mio, parts[1], level)
+                if level == "trusted":
+                    try:
+                        appservice.mcp_activate(mio)   # trusted sunucuların capability'lerini bağla
+                    except Exception:  # noqa: BLE001 — etkinleştirme başarısızsa trust yine kaydedildi
+                        pass
+                return 200, res
             # POST /converse  gövde={text} — doğal dil → Executive orkestratörü (aynı DTO; Dashboard da kullanır)
             if parts == ["converse"]:
                 b = body if isinstance(body, dict) else {}
