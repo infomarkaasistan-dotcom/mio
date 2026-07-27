@@ -446,23 +446,27 @@ function show(view){
 /* ---------------- onboarding ---------------- */
 const BIZ_TYPES=[["personal","Kişisel Şirket"],["marketing_agency","Pazarlama Ajansı"],
   ["ecommerce","E-Ticaret"],["factory","Fabrika"],["restaurant","Restoran"],["saas","SaaS Girişimi"]];
+const OB_TEAM=[["📈","Pazarlama"],["💰","Finans"],["🤝","Satış"],["🔬","Araştırma"],
+  ["📦","Ürün"],["⚙️","Operasyon"],["🛠️","Mühendislik"],["🛡️","Güvenlik"]];
+function dots(n,total){let s="";for(let i=0;i<total;i++)s+='<i class="'+(i<n?"on":"")+'"></i>';return s;}
 function startOnboarding(addMode){
   const onb=$("#onb"),c=$("#obcard"); onb.classList.remove("hidden");
-  let step=addMode?1:0;
+  let step=addMode?1:0; let createdName="";
   const render=()=>{
     if(step===0){
       c.innerHTML=`<div class="biglogo">M</div>
-        <div class="steps"><i class="on"></i><i></i></div>
+        <div class="steps">${dots(1,4)}</div>
         <h1>MIO'ya hoş geldin</h1>
-        <p>Ben MIO — senin Executive işletim sistemin. Benimle <b>doğal dille</b> konuşursun; işi anlar,
-        planlar, ajanları yönetir ve arka planda organize ederim. Komut ezberlemene gerek yok.</p>
+        <p>Ben MIO — <b>yaşayan bir Executive işletim sistemi</b>, senin AI iş ortağın. Bana bir <b>hedef</b>
+        verirsin; onu anlar, alt görevlere böler, <b>uzman brain'lerden bir ekip</b> kurar ve işi yürütürüm.
+        Komut ezberlemezsin — doğal dille konuşursun.</p>
         <div class="obrow"><button class="btn" id="ob-next" style="flex:1">Başlayalım →</button></div>`;
       $("#ob-next").onclick=()=>{step=1;render();};
-    }else{
+    }else if(step===1){
       c.innerHTML=`<div class="biglogo">🏢</div>
-        <div class="steps"><i class="on"></i><i class="on"></i></div>
+        <div class="steps">${dots(2,4)}</div>
         <h1>İlk işletmeni kur</h1>
-        <p>MIO her işletmeni ayrı ve izole yönetir. Bir ad ver ve türünü seç — departmanları ben hazırlarım.</p>
+        <p>MIO her işletmeni ayrı ve izole yönetir. Bir ad ver, türünü seç — departmanları ben hazırlarım.</p>
         <div class="field"><label>İşletme adı</label><input id="ob-name" placeholder="ör. Acme Pazarlama" autofocus></div>
         <div class="field"><label>Tür</label><select id="ob-type">${
           BIZ_TYPES.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join("")}</select></div>
@@ -476,19 +480,42 @@ function startOnboarding(addMode){
         const name=nm.value.trim(); if(!name){$("#ob-err").textContent="Bir ad girin.";return;}
         $("#ob-create").disabled=true; $("#ob-create").textContent="Kuruluyor…";
         const r=await api("/business","POST",{name,business_type:$("#ob-type").value});
-        if(r.ok){
-          localStorage.setItem("mio-onboarded","1");
-          onb.classList.add("hidden");
-          await refreshBiz();
-          if(!addMode){
-            show("chat");
-            addMsg("mio",`Harika — '${name}' işletmeni kurdum. Departmanları hazırladım. `+
-              `Artık benimle konuşarak yönetebilirsin: "durum nedir", "geliri nasıl artırırım", ya da "yönetim panosu" diyebilirsin.`);
-          }else{ renderBiz(); }
+        if(r.ok){ createdName=name; await refreshBiz();
+          if(addMode){ localStorage.setItem("mio-onboarded","1"); onb.classList.add("hidden"); renderBiz(); }
+          else { step=2; render(); }
         }else{$("#ob-err").textContent=(r.data&&r.data.error)||"Kurulamadı.";
           $("#ob-create").disabled=false;$("#ob-create").textContent="İşletmeyi kur";}
       };
       nm.onkeydown=e=>{if(e.key==="Enter")$("#ob-create").click();};
+    }else if(step===2){
+      // Paperclip modeli: MIO işletmeye CEO olur, brain-destekli ekibini tanıtır
+      c.innerHTML=`<div class="biglogo">🧠</div>
+        <div class="steps">${dots(3,4)}</div>
+        <h1>MIO artık '${esc(createdName)}'in CEO'su</h1>
+        <p>Bir hedef verdiğinde onu alt görevlere böler ve her birine uygun bir <b>uzman agent</b> atarım.
+        Her agent bir <b>brain</b> tarafından desteklenir — MIO'nun farkı bu.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 20px">
+          ${OB_TEAM.map(t=>`<div class="row" style="padding:9px 12px;margin:0">
+            <span style="font-size:16px">${t[0]}</span><span class="rt" style="font-size:13.5px">${t[1]} Agent</span></div>`).join("")}
+        </div>
+        <div class="obrow"><button class="btn" id="ob-next" style="flex:1">Ekibi tanıdım →</button></div>`;
+      $("#ob-next").onclick=()=>{step=3;render();};
+    }else{
+      // İlk görev — hemen değer üret (aksiyon odaklı onboarding)
+      c.innerHTML=`<div class="biglogo">🎯</div>
+        <div class="steps">${dots(4,4)}</div>
+        <h1>İlk hedefini ver</h1>
+        <p>Bir hedef yaz — ekibim hemen çalışsın. Dilersen sonra 'Sohbet'ten de konuşabilirsin.</p>
+        <div class="field"><input id="ob-goal" placeholder="ör. bu ay 100 yeni müşteri kazan" autofocus></div>
+        <div class="obrow">
+          <button class="btn ghost" id="ob-skip" style="flex:0 0 auto">Şimdilik geç</button>
+          <button class="btn" id="ob-go" style="flex:1">MIO'ya yaptır →</button></div>`;
+      const finish=()=>{ localStorage.setItem("mio-onboarded","1"); onb.classList.add("hidden"); };
+      $("#ob-skip").onclick=()=>{ finish(); show("chat");
+        addMsg("mio",`'${createdName}' hazır. Bir hedef ver ya da sohbet et — ekibimle iş yaparım.`); };
+      $("#ob-go").onclick=()=>{ const g=$("#ob-goal").value.trim(); finish(); show("mission");
+        if(g){ const inp=$("#mgoal"); if(inp){ inp.value=g; $("#mrun").click(); } } };
+      $("#ob-goal").onkeydown=e=>{if(e.key==="Enter")$("#ob-go").click();};
     }
   };
   render();
