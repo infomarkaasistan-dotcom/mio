@@ -483,6 +483,19 @@ def mission_run(mio, goal_text: str, *, business_id: Optional[str] = None, actor
     return mio.mission.run(goal_text, business_id=business_id, actor=actor, max_steps=int(max_steps))
 
 
+def mission_save(mio, content: str, *, filename: str = "", actor: str = "owner") -> dict[str, Any]:
+    """Görev raporunu GERÇEK dosyaya yazar (computer-use). files.write yüksek-risk → kullanıcı onayı (Madde 24;
+    web'de 'Kaydet' tıklaması = onay). Dosya sandbox (workspace/files) altında 'missions/' klasörüne düşer."""
+    import re as _re
+    from datetime import datetime, timezone
+    safe = _re.sub(r"[^a-zA-Z0-9_-]+", "-", (filename or "gorev").strip().lower())[:40] or "gorev"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    path = f"missions/{safe}-{stamp}.md"
+    outcome = execute_capability(mio, "files.write", {"path": path, "content": content},
+                                 actor=actor, user_approved=True)   # kullanıcı web'den onayladı
+    return {"requested_path": path, "outcome": outcome}
+
+
 # ---- MCP Kataloğu yüzeyi ("tüm MCP'leri kur; kullanıcı yalnız yetki/anahtar verir") ----
 def mcp_install_catalog(mio, *, actor: str = "owner") -> dict[str, Any]:
     """Bilinen MCP sunucularını UNTRUSTED kaydeder (idempotent; Madde 24 — yetki kullanıcıya ait)."""
@@ -554,5 +567,5 @@ __all__ = [
     "converse", "business_list", "business_create", "business_get", "business_delete", "business_stats",
     "ceo_direct", "ceo_delegate", "ceo_report",
     "agent_list", "agent_register", "agent_tasks", "agent_task_approve", "agent_stats",
-    "mcp_install_catalog", "mcp_catalog_status", "mission_run",
+    "mcp_install_catalog", "mcp_catalog_status", "mission_run", "mission_save",
 ]

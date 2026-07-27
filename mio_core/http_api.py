@@ -206,6 +206,10 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
                 return 200, appservice.mission_run(mio, b.get("goal", ""),
                                                    business_id=b.get("business_id"),
                                                    max_steps=int(b.get("max_steps", 4)))
+            # POST /mission/save  gövde={content, filename} — raporu GERÇEK dosyaya yaz (computer-use, onaylı)
+            if parts == ["mission", "save"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.mission_save(mio, b.get("content", ""), filename=b.get("filename", ""))
             # POST /mcp/install-catalog — bilinen MCP'leri kaydet (idempotent)
             if parts == ["mcp", "install-catalog"]:
                 return 200, appservice.mcp_install_catalog(mio)

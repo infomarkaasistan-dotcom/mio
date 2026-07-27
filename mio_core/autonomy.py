@@ -80,9 +80,23 @@ class MissionRunner:
             results.append({"n": i, "step": step, "brain": brain_name,
                             "agent_id": agent_id, "output": output})
 
-        # 3) rapor (Executive'in özeti)
+        # 3) rapor (Executive'in özeti) + kaydedilebilir markdown iş ürünü (computer-use: gerçek dosya)
+        report_md = self._compile_report(goal_text, results)
         return {"ok": True, "goal": goal_text, "plan_id": plan_id, "business_id": business_id,
-                "team": sorted({r["brain"] for r in results}), "steps": len(results), "results": results}
+                "team": sorted({r["brain"] for r in results}), "steps": len(results), "results": results,
+                "report_markdown": report_md}
+
+    @staticmethod
+    def _compile_report(goal: str, results: list[dict[str, Any]]) -> str:
+        """Görev çıktılarını tek bir markdown iş ürününe derler (dosyaya kaydedilebilir)."""
+        from datetime import datetime, timezone
+        lines = [f"# MIO Görev Raporu", "", f"**Hedef:** {goal}",
+                 f"**Tarih:** {datetime.now(timezone.utc).isoformat()[:19].replace('T', ' ')} UTC",
+                 f"**Ekip:** {', '.join(sorted({r['brain'] for r in results}))}", "", "---", ""]
+        for r in results:
+            lines += [f"## {r['n']}. {r['step']}", f"*Agent: {r['brain']}*", "", r["output"], "", "---", ""]
+        lines.append("_MIO Executive OS tarafından otonom üretildi._")
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------ #
     def _brain_work(self, brain_name: str, goal: str, step: str, actor: str) -> str:

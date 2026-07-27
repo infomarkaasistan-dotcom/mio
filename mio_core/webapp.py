@@ -412,6 +412,17 @@ function renderMission(){
     const head=el("div","row");
     head.innerHTML='<div><div class="rt">✓ Görev tamamlandı</div><div class="rs">Ekip: '+
       (d.team||[]).join(", ")+' · '+d.steps+' adım</div></div>';
+    if(d.report_markdown){                              // computer-use: gerçek dosyaya kaydet (onaylı)
+      const sv=el("button","btn ghost","📄 Raporu kaydet"); sv.style.marginLeft="auto";
+      sv.style.padding="8px 14px"; sv.style.fontSize="13px";
+      sv.onclick=async()=>{ sv.disabled=true; sv.textContent="Kaydediliyor…";
+        const rr=await api("/mission/save","POST",{content:d.report_markdown,filename:goal});
+        const p=rr.data&&rr.data.outcome&&(rr.data.outcome.result||rr.data.outcome);
+        const path=(p&&(p.path||p.requested_path))||(rr.data&&rr.data.requested_path);
+        sv.textContent = rr.ok ? ("✓ Kaydedildi: "+(path||"dosya")) : "Kaydedilemedi";
+      };
+      head.appendChild(sv);
+    }
     out.appendChild(head);
     (d.results||[]).forEach(res=>{
       const c=el("div","row"); c.style.cssText="flex-direction:column;align-items:flex-start;gap:8px";
