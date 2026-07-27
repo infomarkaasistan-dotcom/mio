@@ -11,10 +11,16 @@ CEO yanıtı (Türkçe). Konuşma bağlamı (referanslar: 'bunu durdur', 'devam 
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Optional
 
 from mio_core import appservice
+
+# LLM'in ürettiği yürütme işareti (kullanıcıya gösterilmez). Executive yalnız ALLOWLIST'teki güvenli/geri-alınabilir
+# işlemleri LLM önerisiyle yürütür — riskli/geri-alınamaz olanlar (silme/yayınlama) buraya DAHİL DEĞİL (Madde 24).
+_ACTION_RE = re.compile(r"\[MIO_ACTION:\s*(\{.*?\})\s*\]", re.DOTALL)
+_ALLOWED_ACTIONS = {"business_create", "ceo_direct"}
 
 
 # Türkçe diacritic → ASCII (kullanıcı 'yardım' ya da 'yardim' yazabilir; ikisi de eşleşmeli).
@@ -58,19 +64,140 @@ class ConversationalOrchestrator:
 
     # ------------------------------------------------------------------ #
     def handle(self, text: str, *, actor: str = "owner") -> dict[str, Any]:
-        """Doğal dil isteğini işler. {intent, response, data, suggestion} döner. ASLA raise etmez."""
+        """Doğal dil isteğini işler. {intent, response, data} döner. ASLA raise etmez.
+
+        **Beyin (LLM danışman) bağlıysa → YAŞAYAN konuşma** (gerçek anlama + MIO'nun canlı durumu + Executive
+        yürütme + doğal cevap). LLM yoksa → deterministik komut yönlendirme (dürüst fallback)."""
         text = (text or "").strip()
         if not text:
             return self._resp("empty", "Bir şey yazın; örneğin 'durum nedir' ya da 'yardım'.", None)
-        intent = self._classify(text)
         try:
-            result = self._route(intent, text, actor)
+            if self._mio.advisor.available():
+                result = self._live_converse(text, actor)   # gerçek konuşma (LLM + Executive)
+            else:
+                result = self._route(self._classify(text), text, actor)  # LLM yok → deterministik
         except Exception as exc:  # noqa: BLE001 — orkestrasyon hatası kullanıcıya dönüşür, çökmez
-            result = self._resp(intent, f"İşlem sırasında bir sorun oldu: {type(exc).__name__}: {exc}", None)
-        self._context["history"].append({"text": text, "intent": intent})
-        self._context["last_intent"] = intent
+            result = self._resp("error", f"İşlem sırasında bir sorun oldu: {type(exc).__name__}: {exc}", None)
+        self._context["history"].append({"text": text, "intent": result.get("intent"),
+                                         "response": result.get("response", "")})
+        self._context["last_intent"] = result.get("intent")
         self._context["last_data"] = result.get("data")
         return result
+
+    # ------------------------------------------------------------------ #
+    # YAŞAYAN KONUŞMA — LLM anlar + MIO'nun canlı durumu + Executive yürütür + doğal cevap (Anayasa Madde 1/3)
+    # ------------------------------------------------------------------ #
+    def _live_converse(self, text: str, actor: str) -> dict[str, Any]:
+        mio = self._mio
+        # 1) MIO'nun CANLI durumu — LLM boş konuşmaz, gerçek veriyle konuşur (yaşayan döngü)
+        exe = appservice.executive_summary(mio)
+        biz = appservice.business_list(mio)
+        biz_names = ", ".join(b["name"] for b in biz[:6]) or "henüz yok"
+        # 2) kimlik + durum + davranış + izinli işlemler (LLM = danışman; karar/yürütme Executive'in)
+        system = (
+            "Sen MIO'sun — yaşayan bir Executive İşletim Sistemi, sahibinin AI iş ortağı (bir AI CEO gibi). "
+            "Sahibinle TÜRKÇE, samimi, net ve KISA (2-4 cümle) konuşursun. Komut ezberletmezsin, doğal konuşursun. "
+            "Gerçek bir sistemsin; bilgin aşağıdaki gerçek durumdan gelir — ASLA uydurmazsın.\n"
+            f"ŞU ANKİ DURUMUN: sistem güveni {exe['system_confidence']} ({exe['executive_score']}/100), "
+            f"{len(biz)} işletme ({biz_names}), {exe['domains']} yetenek alanı.\n"
+            "YETENEKLERİN: işletme kurma/yönetme, stratejik hedef koyma ve planlama, ekip (agent) yönetimi, "
+            "sistem durumu/panel raporu, sunum ve içerik hazırlama.\n"
+            "İŞLEM: SADECE kullanıcı AÇIKÇA yeni bir işletme kurmak ya da bir hedef koymak istediğinde, yanıtının "
+            "EN SONUNA ayrı satırda tek bir işaret ekle (kullanıcı görmez). Selamlaşma/soru/sohbette İŞLEM EKLEME.\n"
+            'İşletme kurma: [MIO_ACTION:{"op":"business_create","name":"<gerçek ad>","business_type":"<tek değer>"}] '
+            "— business_type şu SEÇENEKLERDEN BİRİ olmalı: personal, marketing_agency, ecommerce, factory, "
+            "restaurant, saas (birini seç; '|' yazma).\n"
+            'Hedef koyma: [MIO_ACTION:{"op":"ceo_direct","goal_text":"<hedef>"}]\n'
+            "Ad veya tip belirsizse İŞLEM EKLEME — önce nazikçe sor."
+        )
+        hist = ""
+        for h in self._context["history"][-4:]:
+            hist += f"\nSahip: {h['text']}\nMIO: {h.get('response', '')}"
+        prompt = f"{system}\n{('ÖNCEKİ KONUŞMA:' + hist) if hist else ''}\n\nSahip: {text}\nMIO:"
+        # ÖNCE: bekleyen bir ÖNERİ + kullanıcının onayı var mı? (LLM karar veremez — Madde 1/3/24: onay Executive'in)
+        pending = self._context.get("pending_action")
+        if pending:
+            if self._is_confirmation(text):                # kullanıcı ONAYLADI → Executive YÜRÜTÜR
+                note, data = self._run_action(pending, actor)
+                self._context["pending_action"] = None
+                return self._resp("chat", note or "Tamam, yaptım.", data)
+            if self._is_rejection(text):                   # kullanıcı REDDETTİ → öneri düşer
+                self._context["pending_action"] = None
+                return self._resp("chat", "Tamam, vazgeçtim. Başka ne yapmak istersin?", None)
+            self._context["pending_action"] = None         # başka bir şey dedi → öneri iptal, normal akış
+
+        adv = mio.advisor.ask(prompt, actor=actor)
+        if not adv.get("ok"):                              # LLM anlık cevap veremedi → dürüst deterministik
+            return self._route(self._classify(text), text, actor)
+        raw = ((adv.get("result", {}) or {}).get("advice", "") or "").strip()
+        action, reply = self._extract_action(raw)
+        if action:
+            # LLM yalnız ÖNERDİ — YÜRÜTMEZ. Executive, kullanıcı ONAYI bekler (Anayasa Madde 1/3/24).
+            self._context["pending_action"] = action
+            reply = (reply + "\n\n" + self._describe_action(action) + " (Onaylıyor musun?)").strip()
+            return self._resp("chat", reply, {"pending_action": action})
+        return self._resp("chat", reply or "Buradayım — ne yapmak istersin?", None)
+
+    # -- onay/ret tespiti (deterministik — LLM'e bırakılmaz; karar kullanıcının) --
+    @staticmethod
+    def _is_confirmation(text: str) -> bool:
+        return bool(re.search(r"\b(evet|onayl|tamam|olur|yap|kur|devam et|onaylıyorum|hadi|tabii|ok|okey)",
+                              _normalize(text)))
+
+    @staticmethod
+    def _is_rejection(text: str) -> bool:
+        return bool(re.search(r"\b(hayır|hayir|vazgeç|vazgec|iptal|istemiyorum|dur|gerek yok|yapma|olmaz)",
+                              _normalize(text)))
+
+    def _describe_action(self, action: dict) -> str:
+        """Bekleyen öneriyi kullanıcıya açık dille anlatır (onay için — Executive kapısı)."""
+        op = action.get("op")
+        if op == "business_create":
+            return (f"Öneri: '{action.get('name', '?')}' adlı bir {action.get('business_type', '?')} işletmesi "
+                    "kurayım mı?")
+        if op == "ceo_direct":
+            return f"Öneri: '{action.get('goal_text', '?')}' hedefini kaydedip bir plan hazırlayayım mı?"
+        return "Bir işlem önerim var; onaylıyor musun?"
+
+    def _extract_action(self, raw: str) -> tuple[Optional[dict], str]:
+        """LLM cevabından [MIO_ACTION:{...}] işaretini ayıklar; izinli değilse yok sayar. Cevaptan temizler."""
+        reply = _ACTION_RE.sub("", raw).strip()
+        m = _ACTION_RE.search(raw)
+        if not m:
+            return None, reply
+        try:
+            action = json.loads(m.group(1))
+        except (json.JSONDecodeError, TypeError):
+            return None, reply
+        return (action if action.get("op") in _ALLOWED_ACTIONS else None), reply
+
+    def _run_action(self, action: dict, actor: str) -> tuple[Optional[str], Any]:
+        """LLM'in önerdiği güvenli işlemi Executive yürütür (allowlist). Sonuç doğal bir nota + veriye dönüşür."""
+        op = action.get("op")
+        mio = self._mio
+        if op == "business_create":
+            from mio_core.platform.workspaces import BUSINESS_TEMPLATES
+            name = (action.get("name") or "").strip()
+            bt = (action.get("business_type") or "personal").strip()
+            if not name or bt not in BUSINESS_TEMPLATES:   # ad/tip belirsiz → Executive işlemi yürütmez (sohbet kalır)
+                return None, None
+            try:
+                rec = appservice.business_create(mio, name, business_type=bt)
+                return (f"✓ '{rec['name']}' işletmesini kurdum — {rec['label']} "
+                        f"({', '.join(rec['departments'])}).", {"business": rec})
+            except Exception as exc:  # noqa: BLE001
+                return f"(İşletmeyi kuramadım: {exc})", None
+        if op == "ceo_direct":
+            goal = (action.get("goal_text") or "").strip()
+            if not goal:
+                return None, None
+            try:
+                r = appservice.ceo_direct(mio, goal)
+                return (f"✓ '{goal}' hedefini kaydettim ve bir plan taslağı oluşturdum "
+                        f"({r['plan']['steps']} adım).", r)
+            except Exception as exc:  # noqa: BLE001
+                return f"(Hedefi işleyemedim: {exc})", None
+        return None, None
 
     def context(self) -> dict[str, Any]:
         return {"turns": len(self._context["history"]), "last_intent": self._context["last_intent"],
