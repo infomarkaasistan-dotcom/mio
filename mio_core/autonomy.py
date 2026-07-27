@@ -77,6 +77,9 @@ class MissionRunner:
             output = self._brain_work(brain_name, goal_text, step, actor)
             # görünürlük: alt agent'ı kaydet (mevcut multi_agent — CEO'nun kurduğu ekip)
             agent_id = self._register_agent(brain_name, actor)
+            # ÖĞRENME: sonucu Learning'e sinyal ver (MIO öğrenir — hangi brain hangi işte başarılı)
+            success = bool(output) and not output.startswith("(çıktı üretilemedi")
+            self._learn(brain_name, step, success, actor)
             results.append({"n": i, "step": step, "brain": brain_name,
                             "agent_id": agent_id, "output": output})
 
@@ -114,6 +117,16 @@ class MissionRunner:
         if r.get("ok"):
             return ((r.get("result", {}) or {}).get("advice", "") or "").strip() or "(boş çıktı)"
         return f"(çıktı üretilemedi: {r.get('status', r.get('error', 'bilinmiyor'))})"
+
+    def _learn(self, brain_name: str, step: str, success: bool, actor: str) -> None:
+        """Görev sonucunu Learning'e sinyal verir (mevcut learning domain — MIO deneyimden öğrenir)."""
+        try:
+            self._mio.learning.record_outcome(
+                actor, f"mission:{brain_name}", success=success, tags=["mission", brain_name.lower()],
+                lesson=f"{brain_name} agent '{step[:60]}' görevini "
+                       f"{'tamamladı' if success else 'tamamlayamadı'}")
+        except Exception:  # noqa: BLE001 — öğrenme sinyali başarısızsa görev yine tamamlanır (ikincil)
+            pass
 
     def _register_agent(self, brain_name: str, actor: str) -> Optional[str]:
         """CEO'nun kurduğu alt agent'ı görünürlük için kaydeder (idempotent — brain başına bir agent)."""

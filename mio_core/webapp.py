@@ -285,13 +285,26 @@ async function send(text){
   const r=await api("/converse","POST",{text});
   stopTyping();
   if(r.ok&&r.data){
-    addMsg("mio", r.data.response||"…", dataCard(r.data.intent,r.data.data));
+    const bub=addMsg("mio", r.data.response||"…", dataCard(r.data.intent,r.data.data));
+    // LLM bir işlem ÖNERDİ → Executive onayı bekler (Madde 24). Düğmeyle onayla/vazgeç (görünür onay).
+    const pa=(r.data.data||{}).pending_action;
+    if(pa) addConfirm(bub);
     // işletme değişmiş olabilir (ör. yeni kuruldu) → tazele
     if(r.data.intent==="business"||/işletme|kur/i.test(text)){ await refreshBiz(); }
   }else{
     addMsg("mio","Bir sorun oldu (HTTP "+r.status+"). MIO sunucusu çalışıyor mu?");
   }
   STATE.busy=false; $("#input").focus();
+}
+function addConfirm(bubble){
+  const row=el("div"); row.style.cssText="display:flex;gap:8px;margin-top:10px";
+  const yes=el("button","btn","✓ Onayla"); yes.style.cssText="padding:8px 16px;font-size:13px";
+  const no=el("button","btn ghost","Vazgeç"); no.style.cssText="padding:8px 16px;font-size:13px";
+  yes.onclick=()=>{row.remove(); send("evet, onaylıyorum");};
+  no.onclick=()=>{row.remove(); send("hayır, vazgeç");};
+  row.appendChild(yes); row.appendChild(no);
+  bubble.parentNode.appendChild(row);
+  $("#view-chat").scrollTop=$("#view-chat").scrollHeight;
 }
 
 /* ---------------- panel ---------------- */
