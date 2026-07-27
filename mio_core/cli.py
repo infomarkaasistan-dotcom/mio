@@ -85,7 +85,7 @@ KNOWN_COMMANDS = frozenset({
     "help", "?", "h", "ask", "söyle", "sor", "domains", "executive", "diagnose", "hardware", "models",
     "connectors", "capabilities", "metrics", "prometheus", "readiness", "health", "events", "contract",
     "stats", "call", "execute", "inference", "mcp", "present", "presentation", "chat", "conversation",
-    "conv", "workflow", "wf", "connect", "config", "workspace", "server", "serve", "http", "shell",
+    "conv", "workflow", "wf", "connect", "config", "workspace", "server", "serve", "http", "app", "start", "shell",
     "business", "işletme", "isletme", "ceo", "agent", "agents", "quit", "exit", "q",
 })
 
@@ -563,8 +563,16 @@ def main(argv: Optional[list] = None) -> int:
     try:
         if is_interactive and not force_json:
             return interactive(mio, workspace=workspace)
-        if argv and argv[0] in ("serve", "http"):
+        if argv and argv[0] in ("serve", "http", "app", "start"):
             from mio_core.http_api import serve
+            url = f"http://{host}:{port}"
+            # 'app'/'start' → kullanıcı dostu: sunucuyu başlat + tarayıcıyı otomatik aç
+            if argv[0] in ("app", "start"):
+                import threading, webbrowser
+                threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+                print(f"\n  MIO açılıyor…  Tarayıcıda: {url}\n  (Durdurmak için bu pencerede Ctrl-C)\n")
+            else:
+                print(f"  MIO HTTP: {url}  (uygulama arayüzü: {url}/)")
             serve(mio, host=host, port=int(port))
             return 0
         # tek-atış: TTY ise rich, değilse (pipe/redirect) ya da --json ise JSON

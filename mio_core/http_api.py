@@ -253,10 +253,23 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(status, data)
 
     def do_GET(self) -> None:
+        route = urlparse(self.path).path.rstrip("/") or "/"
+        if route in ("/", "/app", "/ui"):          # insan yüzü: tek-dosya web uygulaması (transport katmanı)
+            from mio_core.webapp import WEBAPP_HTML
+            self._send_html(200, WEBAPP_HTML)
+            return
         self._dispatch("GET")
 
     def do_POST(self) -> None:
         self._dispatch("POST")
+
+    def _send_html(self, status: int, html: str) -> None:
+        payload = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def _send(self, status: int, data: Any) -> None:
         if isinstance(data, str):                   # Prometheus exposition vb. → text/plain
