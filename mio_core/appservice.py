@@ -476,6 +476,13 @@ def inference_ensure_ready(mio, *, approve=frozenset(), auto_pull: bool = True,
     return mio.local_inference.ensure_ready(approve=frozenset(approve), auto_pull=auto_pull, run_test=run_test)
 
 
+# ---- Otonom Görev yüzeyi (hedef → CEO böler → brain-destekli agent'lar → çıktı → rapor) ----
+def mission_run(mio, goal_text: str, *, business_id: Optional[str] = None, actor: str = "owner",
+                max_steps: int = 5) -> dict[str, Any]:
+    """Bir hedefi otonom yürütür (LLM karar vermez — brain'ler çıktı üretir, Executive karar verir)."""
+    return mio.mission.run(goal_text, business_id=business_id, actor=actor, max_steps=int(max_steps))
+
+
 # ---- MCP Kataloğu yüzeyi ("tüm MCP'leri kur; kullanıcı yalnız yetki/anahtar verir") ----
 def mcp_install_catalog(mio, *, actor: str = "owner") -> dict[str, Any]:
     """Bilinen MCP sunucularını UNTRUSTED kaydeder (idempotent; Madde 24 — yetki kullanıcıya ait)."""
@@ -547,5 +554,5 @@ __all__ = [
     "converse", "business_list", "business_create", "business_get", "business_delete", "business_stats",
     "ceo_direct", "ceo_delegate", "ceo_report",
     "agent_list", "agent_register", "agent_tasks", "agent_task_approve", "agent_stats",
-    "mcp_install_catalog", "mcp_catalog_status",
+    "mcp_install_catalog", "mcp_catalog_status", "mission_run",
 ]

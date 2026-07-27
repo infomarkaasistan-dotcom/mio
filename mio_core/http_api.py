@@ -200,6 +200,12 @@ def route_request(mio, method: str, path: str, query: dict, body: Any) -> tuple[
             # POST /agents/{task_id}/approve — yüksek-risk görev onayı (Madde 24)
             if len(parts) == 3 and parts[0] == "agents" and parts[2] == "approve":
                 return 200, appservice.agent_task_approve(mio, parts[1])
+            # POST /mission  gövde={goal, business_id, max_steps} — otonom görev (CEO→brain-destekli agent'lar)
+            if parts == ["mission"]:
+                b = body if isinstance(body, dict) else {}
+                return 200, appservice.mission_run(mio, b.get("goal", ""),
+                                                   business_id=b.get("business_id"),
+                                                   max_steps=int(b.get("max_steps", 4)))
             # POST /mcp/install-catalog — bilinen MCP'leri kaydet (idempotent)
             if parts == ["mcp", "install-catalog"]:
                 return 200, appservice.mcp_install_catalog(mio)

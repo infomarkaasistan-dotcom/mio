@@ -237,6 +237,7 @@ class MIORuntime:
         self._conversational = None          # doğal dil orkestratörü (lazy; konuşma bağlamı tutar)
         self._business = None                # İşletme çalışma alanı yöneticisi (lazy; platform servisi)
         self._ceo = None                     # CEO Experience orkestratörü (lazy; intent→plan→delegate→report)
+        self._mission = None                 # Otonom Görev Yürütücü (lazy; hedef→brain-destekli agent'lar→rapor)
         self.bus: EventBus = components["bus"]
         self.versions: VersionManager = components["versions"]
         self.marketplace: CapabilityMarketplace = components["marketplace"]
@@ -363,6 +364,16 @@ class MIORuntime:
             from mio_core.ceo import CEOExperience
             self._ceo = CEOExperience(self)
         return self._ceo
+
+    @property
+    def mission(self):
+        """Otonom Görev Yürütücü (hedef → CEO böler → brain-destekli agent'lar → çıktı → rapor). Lazy.
+
+        LLM karar vermez (brain'ler çıktı üretir); Executive karar verir. Düşünsel iş otonom, dış aksiyon onaylı."""
+        if self._mission is None:
+            from mio_core.autonomy import MissionRunner
+            self._mission = MissionRunner(self)
+        return self._mission
 
     def readiness(self) -> dict:
         """Operational Readiness self-check (DETERMİNİSTİK; dış adapter gerektirmez).

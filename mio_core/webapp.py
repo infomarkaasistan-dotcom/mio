@@ -151,6 +151,7 @@ WEBAPP_HTML = r"""<!doctype html>
     </div>
     <div class="nav">
       <button data-view="chat" class="active"><span class="ic">💬</span> Sohbet</button>
+      <button data-view="mission"><span class="ic">🎯</span> Görev</button>
       <button data-view="panel"><span class="ic">📊</span> Panel</button>
       <button data-view="biz"><span class="ic">🏢</span> İşletmeler</button>
       <button data-view="conn"><span class="ic">🔌</span> Bağlantılar</button>
@@ -191,6 +192,9 @@ WEBAPP_HTML = r"""<!doctype html>
 
     <!-- BAĞLANTILAR -->
     <div class="view hidden" id="view-conn"></div>
+
+    <!-- GÖREV (otonom) -->
+    <div class="view hidden" id="view-mission"></div>
   </main>
 </div>
 
@@ -376,18 +380,67 @@ async function renderConn(){
   v.appendChild(sec);
 }
 
+/* ---------------- görev (otonom: CEO → brain-destekli agent'lar) ---------------- */
+function renderMission(){
+  const v=$("#view-mission"); v.innerHTML="";
+  const s=el("div","section");
+  s.appendChild(el("h3","Otonom Görev — bir hedef ver, MIO ekibi yapsın"));
+  s.appendChild(el("div","rs","MIO hedefini alt görevlere böler, her birine uygun bir <b>brain-destekli agent</b> "+
+    "(Pazarlama, Finans, Araştırma…) atar ve gerçek çıktı üretir. Yerel modelle çalışır — birkaç dakika sürebilir."));
+  const box=el("div"); box.style.cssText="display:flex;gap:10px;margin-top:14px;max-width:700px";
+  const inp=el("input"); inp.id="mgoal"; inp.placeholder="ör. kahve markam için bu ay 100 yeni müşteri kazan";
+  inp.style.cssText="flex:1;background:var(--panel2);border:1px solid var(--line2);color:var(--text);border-radius:11px;padding:12px 14px;font-size:14.5px;outline:none";
+  const btn=el("button","btn","MIO'ya yaptır"); btn.id="mrun";
+  box.appendChild(inp); box.appendChild(btn); s.appendChild(box);
+  v.appendChild(s);
+  const out=el("div","section"); out.id="mout"; v.appendChild(out);
+  const run=async()=>{
+    const goal=inp.value.trim(); if(!goal)return;
+    btn.disabled=true; inp.disabled=true;
+    out.innerHTML="";
+    const wait=el("div","row"); wait.innerHTML='<div class="rt">🎯 MIO ekibi çalışıyor…</div>'+
+      '<div class="rs" style="margin-left:12px">Hedef bölünüyor, agent\'lar çıktı üretiyor (birkaç dakika)</div>';
+    out.appendChild(wait);
+    const r=await api("/mission","POST",{goal,max_steps:3});
+    out.innerHTML="";
+    if(!r.ok||!r.data||!r.data.ok){
+      const msg=(r.data&&(r.data.message||r.data.error))||"Görev yürütülemedi.";
+      out.appendChild(el("div","empty",esc(msg)+" (Gerçek konuşma/otonomi için Bağlantılar'dan bir LLM bağlı olmalı.)"));
+      btn.disabled=false; inp.disabled=false; return;
+    }
+    const d=r.data;
+    const head=el("div","row");
+    head.innerHTML='<div><div class="rt">✓ Görev tamamlandı</div><div class="rs">Ekip: '+
+      (d.team||[]).join(", ")+' · '+d.steps+' adım</div></div>';
+    out.appendChild(head);
+    (d.results||[]).forEach(res=>{
+      const c=el("div","row"); c.style.cssText="flex-direction:column;align-items:flex-start;gap:8px";
+      const h=el("div"); h.style.cssText="display:flex;align-items:center;gap:10px;width:100%";
+      h.innerHTML='<div class="rt">'+res.n+'. '+esc(res.step)+'</div><div class="badge" style="margin-left:auto">'+
+        esc(res.brain)+' Agent</div>';
+      c.appendChild(h);
+      const o=el("div","rs"); o.style.cssText="white-space:pre-wrap;line-height:1.6;color:var(--text)";
+      o.textContent=res.output; c.appendChild(o);
+      out.appendChild(c);
+    });
+    btn.disabled=false; inp.disabled=false;
+  };
+  btn.onclick=run; inp.onkeydown=e=>{if(e.key==="Enter")run();};
+}
+
 /* ---------------- görünüm yönetimi ---------------- */
 function show(view){
-  ["chat","panel","biz","conn"].forEach(x=>{
+  ["chat","mission","panel","biz","conn"].forEach(x=>{
     $("#view-"+x).classList.toggle("hidden",x!==view);
   });
   $("#composer").classList.toggle("hidden",view!=="chat");
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
-  $("#viewTitle").textContent={chat:"Sohbet",panel:"Panel",biz:"İşletmeler",conn:"Bağlantılar"}[view];
+  $("#viewTitle").textContent={chat:"Sohbet",mission:"Görev",panel:"Panel",biz:"İşletmeler",conn:"Bağlantılar"}[view];
   $("#side").classList.remove("open");
   if(view==="panel")renderPanel();
   if(view==="biz")renderBiz();
   if(view==="conn")renderConn();
+  if(view==="mission")renderMission();
 }
 
 /* ---------------- onboarding ---------------- */
