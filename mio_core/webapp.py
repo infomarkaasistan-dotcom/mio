@@ -179,9 +179,11 @@ WEBAPP_HTML = r"""<!doctype html>
       </div>
       <div class="cbox">
         <textarea id="input" rows="1" placeholder="MIO ile konuş…  (örn: 'geliri artırmak için ne yapmalıyım')"></textarea>
+        <button class="send" id="mic" title="Sesli konuş">🎤</button>
         <button class="send" id="send" disabled>↑</button>
       </div>
-      <div class="hint">MIO Executive · doğal dille konuş, işi arka planda o organize eder</div>
+      <div class="hint"><span id="hinttext">MIO Executive · doğal dille konuş, işi arka planda o organize eder</span>
+        · <label style="cursor:pointer"><input type="checkbox" id="ttsToggle"> sesli yanıt</label></div>
     </div>
 
     <!-- PANEL -->
@@ -286,6 +288,7 @@ async function send(text){
   stopTyping();
   if(r.ok&&r.data){
     const bub=addMsg("mio", r.data.response||"…", dataCard(r.data.intent,r.data.data));
+    speak(r.data.response||"");                        // sesli yanıt (toggle açıksa)
     // LLM bir işlem ÖNERDİ → Executive onayı bekler (Madde 24). Düğmeyle onayla/vazgeç (görünür onay).
     const pa=(r.data.data||{}).pending_action;
     if(pa) addConfirm(bub);
@@ -544,6 +547,31 @@ function startOnboarding(addMode){
   };
   render();
 }
+
+/* ---------------- sesli konuşma (tarayıcı Web Speech API — anahtar/npx YOK, tr-TR) ---------------- */
+function speak(text){
+  if(!$("#ttsToggle").checked||!window.speechSynthesis||!text) return;
+  const clean=text.replace(/\n+/g," ").slice(0,600);
+  const u=new SpeechSynthesisUtterance(clean); u.lang="tr-TR"; u.rate=1.05;
+  try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){}
+}
+let recog=null,listening=false;
+(function initSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const mic=$("#mic");
+  if(!SR){ if(mic) mic.style.display="none"; return; }
+  mic.style.background="var(--panel)"; mic.style.border="1px solid var(--line2)";
+  recog=new SR(); recog.lang="tr-TR"; recog.interimResults=false; recog.maxAlternatives=1;
+  recog.onresult=e=>{ const t=e.results[0][0].transcript; $("#input").value=t; autosize(); send(); };
+  recog.onend=()=>{ listening=false; mic.textContent="🎤"; mic.style.background="var(--panel)"; };
+  recog.onerror=()=>{ listening=false; mic.textContent="🎤"; mic.style.background="var(--panel)"; };
+  mic.onclick=()=>{
+    if(listening){ try{recog.stop();}catch(e){} return; }
+    try{ if(window.speechSynthesis) speechSynthesis.cancel();
+      recog.start(); listening=true; mic.textContent="🔴"; mic.style.background="var(--err)"; }
+    catch(e){ listening=false; }
+  };
+})();
 
 /* ---------------- girdi davranışı ---------------- */
 function autosize(){const i=$("#input");i.style.height="auto";i.style.height=Math.min(i.scrollHeight,160)+"px";

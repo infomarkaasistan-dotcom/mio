@@ -565,9 +565,8 @@ def main(argv: Optional[list] = None) -> int:
             return interactive(mio, workspace=workspace)
         if argv and argv[0] in ("serve", "http", "app", "start"):
             from mio_core.http_api import serve
-            try:                                       # BEYNİ AÇ: .env/ortam connector'larını bağla (Ollama/LLM →
-                from mio_core.connectors.adapters import register_from_env  # advisor; SMTP/media vb.)
-                rep = register_from_env(mio.connectors, env=mio.config.as_dict())
+            try:                                       # BEYNİ AÇ: appservice üzerinden connector'ları bağla
+                rep = appservice.connect_env(mio)      # (Interface Architecture: arayüz appservice'e delege eder)
                 brain = "açık (LLM bağlı)" if mio.advisor.available() else "kapalı (LLM yok — sınırlı mod)"
                 print(f"  Beyin: {brain}  ·  bağlı: {', '.join(rep.get('registered', [])) or 'yok'}")
             except Exception as exc:  # noqa: BLE001 — connector bağlanamazsa uygulama yine açılır (dürüst)
